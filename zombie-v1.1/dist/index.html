@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Zombie">
   <meta name="theme-color" content="#07100f">
   <meta name="description" content="Zombie v1.1 — an interactive survival command drama prototype.">
   <title>Zombie v1.1</title>
@@ -42,7 +46,7 @@
     <section class="screen ops-screen" id="ops-screen" aria-labelledby="ops-title">
       <header class="topbar">
         <div class="brand"><span class="pulse"></span><strong>ZOMBIE</strong><small>v1.1</small></div>
-        <nav aria-label="Operations sections"><button class="nav-active">MAP</button><button id="roster-jump">ROSTER <span id="roster-count">6</span></button><button>ARCHIVE</button></nav>
+        <nav aria-label="Operations sections"><button class="nav-active" id="nav-map">MAP</button><button id="roster-jump">ROSTER <span id="roster-count">6</span></button></nav>
         <div class="clock"><span id="day-state">DAY 12</span><strong id="ops-time">07:10</strong></div>
       </header>
       <div class="ops-layout">
@@ -51,8 +55,8 @@
           <h2 id="ops-title">Russa Bakin</h2>
           <p class="muted">Secure a foothold. Locate the missing. Keep the roads open.</p>
           <div class="chapter-progress"><span style="width:18%"></span></div>
-          <div class="objective"><span>01</span><div><strong>Desperate Measures</strong><small id="obj-sub">Rescue the trapped civilians</small></div></div>
-          <div class="objective locked"><span>02</span><div><strong>Cold Storage</strong><small>Unknown location</small></div></div>
+          <div class="objective" id="obj-0"><span>01</span><div><strong>Desperate Measures</strong><small>Rescue the trapped civilians</small></div></div>
+          <div class="objective locked" id="obj-1"><span>02</span><div><strong>Cold Storage</strong><small>Unknown location</small></div></div>
           <div class="objective locked"><span>03</span><div><strong>The Long Night</strong><small>Locked</small></div></div>
           <div class="hub-card"><span class="hub-icon">⌂</span><div><small>OPERATIONS HUB</small><strong id="hub-line">6 ready</strong></div></div>
           <p class="ops-report" id="ops-report" hidden></p>
@@ -67,17 +71,17 @@
             <path class="route-dim" d="M118 510 C260 570 440 565 650 510" />
           </svg>
           <button class="map-node base-node" style="left:11%;top:75%" aria-label="Operations hub"><span>⌂</span><small>HOME</small></button>
-          <button class="map-node unknown-node" style="left:68%;top:73%" aria-label="Unknown location"><span>?</span><small>NO SIGNAL</small></button>
-          <button class="map-node mission-node selected" style="left:77%;top:23%" id="mission-node" aria-label="Desperate Measures mission"><span>!</span><small>MISSION</small></button>
+          <button class="map-node unknown-node" style="left:68%;top:73%" id="node-1" aria-label="Cold Storage"><span>?</span><small>NO SIGNAL</small></button>
+          <button class="map-node mission-node selected" style="left:77%;top:23%" id="node-0" aria-label="Desperate Measures"><span>!</span><small>MISSION</small></button>
           <div class="route-token" style="left:39%;top:51%"><span>●</span> 5 MIN</div>
           <div class="map-caption"><span>SECTOR 7</span><strong>Signal triangulation: 61%</strong></div>
         </div>
 
         <aside class="brief-panel">
-          <div class="brief-head"><span>MISSION 01</span><strong>HIGH PRIORITY</strong></div>
-          <h2>Desperate Measures</h2>
-          <p class="location">CONVENIENCE SHOP · 3.8 KM</p>
-          <p>Civilians are barricaded inside. The shutters are failing and something has entered through the stockroom.</p>
+          <div class="brief-head"><span id="brief-num">MISSION 01</span><strong>HIGH PRIORITY</strong></div>
+          <h2 id="brief-title">Desperate Measures</h2>
+          <p class="location" id="brief-place">CONVENIENCE SHOP · 3.8 KM</p>
+          <p id="brief-copy">Civilians are barricaded inside. The shutters are failing and something has entered through the stockroom.</p>
           <div class="intel-grid">
             <div><small>THREAT</small><strong id="threat-value">Unknown</strong></div>
             <div><small>STRUCTURE</small><strong id="structure-value">Partial</strong></div>
@@ -88,11 +92,18 @@
           <div class="choice-block">
             <span class="choice-label">APPROACH</span>
             <div class="segmented" id="route-choice">
-              <button data-route="foot"><strong>ON FOOT</strong><small>Silent · barricade −10</small></button>
+              <button data-route="foot"><strong>ON FOOT</strong><small>Silent · barricade −5</small></button>
               <button class="selected" data-route="vehicle"><strong>VEHICLE</strong><small>Fast · +25 noise on arrival</small></button>
             </div>
           </div>
           <button class="primary full" id="prepare-btn">Prepare deployment</button>
+          <div class="choice-block day-actions">
+            <span class="choice-label">OR SPEND THE DAY · NO MISSION</span>
+            <div class="segmented">
+              <button id="scavenge-btn"><strong>SCAVENGE</strong><small>Two troopers · +ammo</small></button>
+              <button id="rest-btn"><strong>REST</strong><small>Heal up · the day passes</small></button>
+            </div>
+          </div>
         </aside>
       </div>
     </section>
@@ -119,7 +130,7 @@
             <div class="load-row"><span>MEDS</span><button data-load="meds" data-dir="-1" aria-label="Fewer meds">−</button><strong id="load-meds">2</strong><button data-load="meds" data-dir="1" aria-label="More meds">+</button><small id="load-meds-base"></small></div>
           </div>
           <label>INTEL</label>
-          <div class="forecast"><div><span>THREAT</span><strong id="f-threat">?</strong></div><div><span>BLOATER</span><strong id="f-bloater">Unknown</strong></div><div><span>BARRICADE ON ARRIVAL</span><strong id="f-barricade">?</strong></div><div><span>ARRIVAL NOISE</span><strong id="f-noise">?</strong></div><div><span>SQUAD</span><strong id="f-squad">?</strong></div></div>
+          <div class="forecast"><div><span>THREAT</span><strong id="f-threat">?</strong></div><div><span>SPECIALS</span><strong id="f-bloater">Unknown</strong></div><div><span>BARRICADE ON ARRIVAL</span><strong id="f-barricade">?</strong></div><div><span>ARRIVAL NOISE</span><strong id="f-noise">?</strong></div><div><span>SQUAD</span><strong id="f-squad">?</strong></div></div>
           <button class="primary full danger" id="deploy-btn">Deploy team</button>
         </aside>
       </div>
@@ -127,7 +138,7 @@
 
     <section class="screen combat-screen" id="combat-screen" aria-labelledby="combat-title">
       <header class="combat-top">
-        <div><p class="eyebrow">MISSION 01 · LIVE</p><h2 id="combat-title">Convenience Shop</h2></div>
+        <div class="combat-name"><p class="eyebrow" id="combat-eyebrow">MISSION 01 · LIVE</p><h2 id="combat-title">Convenience Shop</h2></div>
         <div class="mission-stat"><span>OBJECTIVE</span><strong id="objective-text">Reach the civilians</strong></div>
         <div class="time-controls" aria-label="Time controls"><button id="pause-btn" aria-label="Pause">Ⅱ</button><button class="selected" data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button></div>
       </header>
@@ -139,6 +150,7 @@
             <div class="squad-status" id="squad-status"></div>
             <div class="hud-bottom">
               <div class="stance-bar" id="stance-bar"><button data-stance="defensive">DEFENSIVE</button><button data-stance="controlled">CONTROLLED</button><button data-stance="aggressive">AGGRESSIVE</button><button data-faw="1" class="faw">FIRE AT WILL: ON</button></div>
+              <div class="pick-bar" id="pick-bar" hidden></div>
               <div class="command-bar" id="command-bar">
                 <button data-command="advance"><span>⌖</span>ADVANCE<small>1 · pick room</small></button>
                 <button data-command="seal"><span>▣</span>SEAL DOOR<small>1 · 20s</small></button>
@@ -164,7 +176,7 @@
     </section>
 
     <section class="screen result-screen" id="result-screen" aria-labelledby="result-title">
-      <div class="result-card"><p class="eyebrow">AFTER-ACTION REPORT · MISSION 01</p><h1 id="result-title">Team returning</h1><p class="result-summary" id="result-summary"></p><div class="result-grid" id="result-grid"></div><div class="casualty-list" id="casualty-list"></div><p class="result-base" id="result-base"></p><button class="primary" id="return-ops">Return to operations</button></div>
+      <div class="result-card"><p class="eyebrow" id="result-eyebrow">AFTER-ACTION REPORT · MISSION 01</p><h1 id="result-title">Team returning</h1><p class="result-summary" id="result-summary"></p><div class="result-grid" id="result-grid"></div><div class="casualty-list" id="casualty-list"></div><p class="result-base" id="result-base"></p><button class="primary" id="return-ops">Return to operations</button></div>
     </section>
   </main>
   <script src="./app.js"></script>

@@ -49,97 +49,209 @@
   const doorBetween = (a, b) => DOORS.find(d => (d.a === a && d.b === b) || (d.a === b && d.b === a));
   const roomName = r => ROOMS[r].label.toLowerCase();
   const doorName = d => `${roomName(d.a)} / ${roomName(d.b)} door`;
-  const bloaterRoomFor = day => [4, 5, 1][day % 3];
+  const CIV = 2, ENTRY = 3; // the civilians' room and the entry room (same plan in both buildings)
+
+  // ---------- buildings (slice 2: Cold Storage reuses the floor plan with its own threat mix) ----------
+  const BUILDINGS = [
+    {key:"shop", mission:"Desperate Measures", title:"Convenience Shop", place:"CONVENIENCE SHOP · 3.8 KM",
+      brief:"Civilians are barricaded inside. The shutters are failing and something has entered through the stockroom.",
+      labels:["SHOP FLOOR","CHECKOUT","STOCKROOM","AISLES","OFFICE","LOADING BAY"], civ:6, infected:26,
+      armouredEvery:7, runnersStart:0, noiseDecay:.5, bloaterRooms:[4,5,1], screamerRooms:[5,0,4]},
+    {key:"cold", mission:"Cold Storage", title:"Cold Storage", place:"COLD STORAGE · 5.1 KM",
+      brief:"Four workers locked themselves in the cold room. The compressors still run and hide some of your noise, but the plant is full of armoured infected and runners.",
+      labels:["DOCK OFFICE","SORTING","COLD ROOM","PALLET HALL","PUMP ROOM","FREEZER BAY"], civ:4, infected:22,
+      armouredEvery:5, runnersStart:3, noiseDecay:.8, bloaterRooms:[3,4,0], screamerRooms:[1,5,0]}
+  ];
+  let B = BUILDINGS[0];
+  function applyBuilding(){ B = BUILDINGS[Math.min(camp.bIdx, BUILDINGS.length - 1)]; ROOMS.forEach((r, i) => { r.label = B.labels[i]; });
+    EDGES[0].label = B.key === "shop" ? "shop front" : "dock office door"; EDGES[2].label = `${B.labels[CIV].toLowerCase()} back door`; }
+  const bloaterRoomFor = day => B.bloaterRooms[day % 3];
+  const screamerRoomFor = day => { const b = bloaterRoomFor(day); const rs = B.screamerRooms.filter(r => r !== b); return rs[day % rs.length]; };
 
   const ZT = {
     shambler:{hp:20,speed:[18,26],dmg:9,r:7},
+    runner:{hp:14,speed:[46,56],dmg:6,r:6},     // fast and fragile: they punish noise, not aim
     armoured:{hp:110,speed:[10,12],dmg:12,r:11},
+    screamer:{hp:30,speed:[8,10],dmg:5,r:9},     // once awake it screams: +noise, wakes nearby rooms
     bloater:{hp:50,speed:[9,10],dmg:0,r:13}
   };
 
   // ---------- persistence ----------
+  const freshBuilding = b => ({civilians:b.civ, civStart:b.civ, rescued:0, lost:0, barricade:100, infected:b.infected});
   function freshCampaign(){
-    return {v:1,day:START_DAY,ammo:240,meds:4,civilians:6,civStart:6,rescued:0,lost:0,barricade:100,infected:30,missions:0,report:"",
+    return {v:2,day:START_DAY,ammo:240,meds:4,missions:0,report:"",bIdx:0,b:BUILDINGS.map(freshBuilding),recruits:[],rescuedTotal:0,ended:null,
       roster:Object.fromEntries(ROSTER.map(p => [p.id, {status:"fit", out:0, lastDay:-99}]))};
   }
+  function migrate(c){
+    if(c.v === 1){ // slice 1 save: one building, Joel's "wounded" meant hurt
+      const b0 = {civilians:c.civilians, civStart:c.civStart, rescued:c.rescued, lost:c.lost, barricade:c.barricade, infected:Math.min(36, c.infected)};
+      c = {v:2, day:c.day, ammo:c.ammo, meds:c.meds, missions:c.missions, report:c.report, roster:c.roster, recruits:[], rescuedTotal:c.rescued,
+        bIdx:c.civilians <= 0 ? 1 : 0, b:[b0, freshBuilding(BUILDINGS[1])], ended:null};
+      if(c.roster.joel.status === "wounded") c.roster.joel = {...c.roster.joel, status:"hurt", out:0};
+    }
+    return c;
+  }
   function loadCampaign(){
-    try { const raw = localStorage.getItem(SAVE_KEY); if(raw){ const c = JSON.parse(raw); if(c && c.v === 1 && c.roster) return c; } } catch(e) {}
+    try { const raw = localStorage.getItem(SAVE_KEY); if(raw){ const c = migrate(JSON.parse(raw)); if(c && c.v === 2 && c.roster && c.b) return c; } } catch(e) {}
     return freshCampaign();
   }
   function saveCampaign(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(camp)); } catch(e) {} }
   let camp = loadCampaign();
+  const cur = () => camp.b[Math.min(camp.bIdx, camp.b.length - 1)];
+  const team = () => ROSTER.concat(camp.recruits || []);
   const rec = id => camp.roster[id];
-  const available = id => id === "joel" || rec(id).status === "fit";
+  const available = id => id === "joel" ? rec(id).status !== "wounded" : rec(id).status === "fit";
   const isTired = id => rec(id).lastDay === camp.day - 1;
-  const campaignOver = () => camp.civilians <= 0;
+  const campaignOver = () => cur().civilians <= 0; // this building is resolved
+  const joelOut = () => !available("joel");
+  const canDeploy = () => !camp.ended && !campaignOver() && !joelOut();
   function statusLabel(id){
     const r = rec(id);
     if(r.status === "dead") return "KIA";
-    if(r.status === "wounded") return id === "joel" ? "HURT" : `WOUNDED ${r.out}D`;
+    if(id === "joel") return r.status === "wounded" ? `OUT ${r.out}D` : r.status === "hurt" ? "HURT" : isTired(id) ? "TIRED" : "FIT";
+    if(r.status === "wounded") return `WOUNDED ${r.out}D`;
     return isTired(id) ? "TIRED" : "FIT";
   }
+  applyBuilding();
 
   const state = {screen:"story-screen", recon:false, route:"vehicle", stance:"controlled", selected:new Set(), speed:1, paused:false, carryAmmo:150, carryMeds:2, confirmWipe:false};
   let m = null, crisisSeq = 0;
 
-  function show(id){ screens.forEach(s => s.classList.toggle("active", s.id === id)); state.screen = id; window.scrollTo(0, 0); }
+  function show(id){ screens.forEach(s => s.classList.toggle("active", s.id === id)); state.screen = id; document.body.classList.toggle("in-mission", id === "combat-screen"); window.scrollTo(0, 0); }
   function selectButtons(container, key, value){ $$(`button[data-${key}]`, container).forEach(b => b.classList.toggle("selected", b.dataset[key] === value)); }
 
   // ---------- ops map ----------
-  const missionThreat = () => Math.max(6, camp.infected - (state.recon ? 3 : 0));
-  const arrivalBarricade = () => Math.max(0, Math.round(camp.barricade - (state.recon ? 15 : 0) - (state.route === "foot" ? 10 : 0)));
+  const missionThreat = () => Math.max(6, cur().infected - (state.recon ? 3 : 0));
+  const arrivalBarricade = () => Math.max(10, Math.round(cur().barricade - (state.recon ? 10 : 0) - (state.route === "foot" ? 5 : 0)));
   function threatText(){ const n = missionThreat(); return state.recon ? `${n} confirmed` : `${Math.round(n * .7)}–${Math.round(n * 1.3)}`; }
+  const scavengers = () => team().filter(p => p.id !== "joel" && available(p.id)).sort((a, b) => isTired(a.id) - isTired(b.id) || a.dmg - b.dmg).slice(0, 2);
 
   function renderOps(){
-    const alive = ROSTER.filter(p => rec(p.id).status !== "dead").length;
-    const ready = ROSTER.filter(p => available(p.id)).length;
+    applyBuilding();
+    const alive = team().filter(p => rec(p.id).status !== "dead").length;
+    const ready = team().filter(p => available(p.id)).length;
     $("#day-state").textContent = `DAY ${camp.day}`;
     $("#roster-count").textContent = alive;
     $("#hub-line").textContent = `${ready} ready · ${camp.ammo} rounds · ${camp.meds} meds`;
-    $("#obj-sub").textContent = campaignOver() ? `Resolved · ${camp.rescued} rescued, ${camp.lost} lost` : `${camp.civilians} trapped · ${camp.rescued} rescued · ${camp.lost} lost`;
+    BUILDINGS.forEach((b, i) => {
+      const s = camp.b[i], done = s.civilians <= 0, active = i === camp.bIdx && !done, locked = i > camp.bIdx;
+      $(`#obj-${i}`).classList.toggle("locked", locked);
+      $(`#obj-${i} small`).textContent = locked ? "Unknown location" : done ? `Resolved · ${s.rescued} rescued, ${s.lost} lost` : `${s.civilians} trapped · ${s.rescued} rescued · ${s.lost} lost`;
+      const node = $(`#node-${i}`);
+      node.classList.toggle("mission-node", active); node.classList.toggle("resolved", done); node.classList.toggle("unknown-node", locked);
+      node.classList.toggle("selected", active);
+      $("span", node).textContent = locked ? "?" : done ? "✓" : "!";
+      $("small", node).textContent = locked ? "NO SIGNAL" : done ? "RESOLVED" : "MISSION";
+    });
+    $(".chapter-progress span").style.width = `${Math.round(camp.b.filter(s => s.civilians <= 0).length / 3 * 100) || 6}%`;
+    $("#brief-num").textContent = `MISSION 0${camp.bIdx + 1}`;
+    $("#brief-title").textContent = B.mission; $("#brief-place").textContent = B.place; $("#brief-copy").textContent = B.brief;
     $("#ops-report").textContent = camp.report || ""; $("#ops-report").hidden = !camp.report;
     $("#threat-value").textContent = threatText();
     $("#structure-value").textContent = state.recon ? "Mapped" : "Partial";
     $("#loot-value").textContent = state.recon ? "Medical cache" : "Possible";
     $("#window-value").textContent = `~${arrivalBarricade()}%`;
-    $("#recon-btn").innerHTML = state.recon ? "<span>✓</span> Recon complete <small>Rooms mapped · bloater located · 3 thinned</small>" : "<span>◉</span> Send recon team <small>Barricade −15 · maps rooms, thins 3, finds the bloater</small>";
-    $("#recon-btn").disabled = campaignOver();
+    $("#recon-btn").innerHTML = state.recon ? "<span>✓</span> Recon complete <small>Rooms mapped · specials located · 3 thinned</small>" : "<span>◉</span> Send recon team <small>Barricade −10 · maps rooms, thins 3, finds the bloater and screamer</small>";
+    const over = campaignOver();
+    $("#recon-btn").disabled = !canDeploy();
     selectButtons($("#route-choice"), "route", state.route);
     $("#depart-time").textContent = state.route === "vehicle" ? "07:18" : "07:35";
-    const over = campaignOver();
-    $("#prepare-btn").disabled = over; $("#prepare-btn").textContent = over ? "Building resolved" : "Prepare deployment";
-    $("#mission-node small").textContent = over ? "RESOLVED" : "MISSION";
-    $("#mission-node").classList.toggle("resolved", over);
+    $("#prepare-btn").disabled = !canDeploy();
+    $("#prepare-btn").textContent = over ? "Building resolved" : joelOut() ? `Joel is recovering · ${rec("joel").out} ${rec("joel").out === 1 ? "day" : "days"}` : "Prepare deployment";
+    const sc = scavengers();
+    $("#scavenge-btn").disabled = !!camp.ended || !sc.length;
+    $("#scavenge-btn small").textContent = sc.length ? `${sc.map(p => p.name).join(" + ")} · +50–90 rounds · may get hurt` : "No one fit to send";
+    $("#rest-btn").disabled = !!camp.ended;
+    $("#rest-btn small").textContent = over ? "Heal up · the day passes" : `Heal up · barricade −20 while no one comes`;
     $("#new-campaign").textContent = state.confirmWipe ? "Confirm: wipe this campaign" : "New campaign";
     $("#new-campaign").classList.toggle("danger-outline", state.confirmWipe);
   }
 
-  $("#open-ops").onclick = () => { renderOps(); show("ops-screen"); };
-  $("#prepare-btn").onclick = () => { if(campaignOver()) return; preparePrep(); show("prep-screen"); };
+  // a day with no mission: wounds heal, the building gets worse
+  function quietDay(note){
+    team().forEach(p => { const x = rec(p.id); if(x.status === "wounded"){ x.out--; if(x.out <= 0){ x.status = "fit"; x.out = 0; } } else if(x.status === "hurt") x.status = "fit"; });
+    let night = "";
+    const s = cur();
+    if(s.civilians > 0){
+      s.barricade -= 20; s.infected = Math.min(36, s.infected + 4);
+      if(s.barricade <= 0){ s.civilians--; s.lost++; s.barricade = 40; night = ` With no one coming, the ${B.labels[CIV].toLowerCase()} barricade failed. One civilian was lost.`; }
+      if(s.civilians <= 0) night += ` No one is left alive in the ${B.title.toLowerCase()}.`;
+    }
+    camp.report = `Day ${camp.day}: ${note}${night}`;
+    camp.day++; checkBuilding(); checkEnded(); saveCampaign();
+  }
+  // after any day: a resolved building opens the next one; the last one ends the chapter
+  function checkBuilding(){
+    if(cur().civilians > 0 || camp.ended) return;
+    if(camp.bIdx < BUILDINGS.length - 1){ camp.bIdx++; applyBuilding(); state.recon = false; camp.report += ` Tess picked up a new signal: ${B.mission}, ${B.place.split(" · ")[1]} out.`; }
+    else camp.ended = "chapter";
+  }
+  function checkEnded(){
+    if(!camp.ended && team().every(p => p.id === "joel" || rec(p.id).status === "dead")) camp.ended = "wiped";
+  }
+  $("#scavenge-btn").onclick = () => {
+    const sc = scavengers(); if(!sc.length || camp.ended) return;
+    const rounds = 50 + Math.floor(Math.random() * 5) * 10, med = Math.random() < .5;
+    camp.ammo += rounds; if(med) camp.meds++;
+    const hurt = [];
+    sc.forEach(p => { const x = rec(p.id); x.lastDay = camp.day; if(Math.random() < .2){ x.status = "wounded"; x.out = 2; hurt.push(p.name); } });
+    quietDay(`${sc.map(p => p.name).join(" and ")} scavenged the streets: +${rounds} rounds${med ? ", +1 med" : ""}.${hurt.length ? ` ${hurt.join(" and ")} came back hurt.` : ""}`);
+    state.recon = false; afterDay();
+  };
+  $("#rest-btn").onclick = () => { if(camp.ended) return; quietDay("The team stayed in and patched each other up."); state.recon = false; afterDay(); };
+  function afterDay(){ state.confirmWipe = false; if(camp.ended) showEnd(); else renderOps(); }
+
+  $("#open-ops").onclick = () => { if(camp.ended){ showEnd(); return; } renderOps(); show("ops-screen"); };
+  $("#prepare-btn").onclick = () => { if(!canDeploy()) return; preparePrep(); show("prep-screen"); };
   $("#back-map").onclick = () => { renderOps(); show("ops-screen"); };
-  $("#return-ops").onclick = () => { m = null; state.recon = false; renderOps(); show("ops-screen"); };
-  $("#roster-jump").onclick = () => $("#prepare-btn").click();
-  $("#mission-node").onclick = () => $(".brief-panel").scrollIntoView({behavior:"smooth"});
-  $("#recon-btn").onclick = () => { if(state.recon || campaignOver()) return; state.recon = true; renderOps(); $("#mission-node").animate([{filter:"brightness(2)"},{filter:"brightness(1)"}], {duration:650}); };
+  $("#return-ops").onclick = () => {
+    if(state.endMode){ camp = freshCampaign(); saveCampaign(); state.endMode = false; state.recon = false; state.route = "vehicle"; }
+    m = null; state.recon = false;
+    if(camp.ended){ showEnd(); return; }
+    renderOps(); show("ops-screen");
+  };
+  $("#nav-map").onclick = () => { renderOps(); show("ops-screen"); };
+  $("#roster-jump").onclick = () => { preparePrep(); show("prep-screen"); };
+  $$(".map-node[id^=node-]").forEach(n => n.onclick = () => $(".brief-panel").scrollIntoView({behavior:"smooth"}));
+  $("#recon-btn").onclick = () => { if(state.recon || !canDeploy()) return; state.recon = true; renderOps(); $(`#node-${camp.bIdx}`).animate([{filter:"brightness(2)"},{filter:"brightness(1)"}], {duration:650}); };
   $("#route-choice").onclick = e => { const b = e.target.closest("button[data-route]"); if(!b) return; state.route = b.dataset.route; renderOps(); };
   $("#new-campaign").onclick = () => {
     if(!state.confirmWipe){ state.confirmWipe = true; renderOps(); return; }
     camp = freshCampaign(); saveCampaign(); state.confirmWipe = false; state.recon = false; state.route = "vehicle"; renderOps();
   };
 
+  // ---------- end of the campaign: chapter done, or the squad is gone ----------
+  function showEnd(){
+    state.endMode = true;
+    const all = camp.b.reduce((a, s) => ({r:a.r + s.rescued, l:a.l + s.lost}), {r:0, l:0});
+    const dead = team().filter(p => rec(p.id).status === "dead");
+    $("#result-eyebrow").textContent = camp.ended === "chapter" ? "CHAPTER 1 · CLOSED" : "CAMPAIGN OVER";
+    $("#result-title").textContent = camp.ended === "chapter" ? "The long night is coming" : "The squad is gone";
+    $("#result-summary").textContent = camp.ended === "chapter"
+      ? `Both signals are answered. ${plural(all.r, "civilian")} came home, ${all.l} did not.${dead.length ? ` It cost ${dead.map(p => p.name).join(", ")}.` : " Nobody on the team was lost."}`
+      : `Joel is the last one standing. No one is left to send. ${plural(all.r, "civilian")} came home before the end.`;
+    $("#result-grid").innerHTML = `<div><span>DAYS</span><strong>${camp.day - START_DAY}</strong></div><div><span>CIVILIANS OUT</span><strong>${all.r}</strong></div><div><span>CIVILIANS LOST</span><strong>${all.l}</strong></div><div><span>TEAM LOST</span><strong>${dead.length}</strong></div>`;
+    $("#casualty-list").innerHTML = team().filter(p => p.id !== "joel").map(p => `<div class="casualty-row ${rec(p.id).status === "dead" ? "is-dead" : ""}"><strong>${p.name} · ${p.role}</strong><span>${rec(p.id).status === "dead" ? "Killed" : "Survived"}</span></div>`).join("");
+    $("#result-base").textContent = "Your progress stays on this device. Start again to replay the chapter.";
+    $("#return-ops").textContent = "Start a new campaign";
+    show("result-screen");
+  }
+
   // ---------- deployment ----------
   function preparePrep(){
     state.confirmWipe = false;
-    state.selected = new Set(ROSTER.filter(p => available(p.id)).map(p => p.id));
+    state.selected = new Set(team().filter(p => available(p.id)).map(p => p.id));
     state.carryAmmo = Math.min(camp.ammo, 150); state.carryMeds = Math.min(camp.meds, 2);
     selectButtons($("#doctrine-choice"), "doctrine", state.stance);
+    const d = $("#deploy-btn"); d.disabled = !canDeploy();
+    d.textContent = camp.ended ? "Campaign over" : campaignOver() ? "Building resolved" : joelOut() ? `Joel is recovering · ${rec("joel").out}d` : "Deploy team";
     renderRoster(); renderLoadout(); updateForecast();
   }
   function renderRoster(){
-    $("#squad-list").innerHTML = ROSTER.map(p => {
+    $("#squad-list").innerHTML = team().map(p => {
       const ok = available(p.id), sel = state.selected.has(p.id), s = statusLabel(p.id);
       const label = p.id === "joel" ? (s === "FIT" ? "LEADER" : `LEADER · ${s}`) : s;
-      const tone = s === "KIA" ? "st-dead" : s.startsWith("WOUNDED") || s === "HURT" ? "st-hurt" : s === "TIRED" ? "st-tired" : "";
+      const tone = s === "KIA" ? "st-dead" : s.startsWith("WOUNDED") || s.startsWith("OUT") || s === "HURT" ? "st-hurt" : s === "TIRED" ? "st-tired" : "";
       return `<button class="trooper-card ${!ok ? "unavailable" : sel ? "selected" : "unselected"}" data-id="${p.id}" ${ok ? "" : "disabled"}><span class="portrait" style="color:${p.color}">${p.name.slice(0,2).toUpperCase()}</span><span><strong>${p.name}</strong><small>${p.role} · ${p.trait}</small></span><span class="level ${tone}">${label}</span></button>`;
     }).join("");
     $$(".trooper-card").forEach(card => card.onclick = () => {
@@ -161,18 +273,19 @@
   $("#doctrine-choice").onclick = e => { const b = e.target.closest("button[data-doctrine]"); if(!b) return; state.stance = b.dataset.doctrine; selectButtons($("#doctrine-choice"), "doctrine", state.stance); };
   function updateForecast(){
     $("#f-threat").textContent = state.recon ? threatText() : `${threatText()} · no recon`;
-    $("#f-bloater").textContent = state.recon ? ROOMS[bloaterRoomFor(camp.day)].label : "Unknown";
+    $("#f-bloater").textContent = state.recon ? `Bloater: ${roomName(bloaterRoomFor(camp.day))} · screamer: ${roomName(screamerRoomFor(camp.day))}` : "Unknown";
     $("#f-barricade").textContent = `${arrivalBarricade()}%`;
     $("#f-noise").textContent = state.route === "vehicle" ? "25 · first wave at 30" : "0 · silent";
-    $("#f-squad").textContent = `${state.selected.size} · ${[...state.selected].filter(isTired).length} tired`;
+    const extra = Math.max(0, state.selected.size - 4);
+    $("#f-squad").textContent = `${state.selected.size} · ${[...state.selected].filter(isTired).length} tired${extra ? ` · a big team draws +${extra * 2} infected, bigger waves` : ""}`;
   }
-  $("#deploy-btn").onclick = () => { if(campaignOver()) return; initMission(); show("combat-screen"); startLoop(); };
+  $("#deploy-btn").onclick = () => { if(!canDeploy()) return; initMission(); show("combat-screen"); startLoop(); };
 
   // ---------- mission setup ----------
   const randIn = (r, inset = 25) => ({x:r.x + inset + Math.random() * (r.w - inset * 2), y:r.y + inset + Math.random() * (r.h - inset * 2)});
   function addZombie(type, room, x, y, alert){
     const t = ZT[type];
-    m.zombies.push({kind:"z", id:m.zombies.length, type, room, x, y, hp:t.hp, maxHp:t.hp, speed:t.speed[0] + Math.random() * (t.speed[1] - t.speed[0]), alert, cd:0, alive:true, wp:null, tgt:null, retarget:0});
+    m.zombies.push({kind:"z", id:m.zombies.length, type, room, x, y, hp:t.hp, maxHp:t.hp, speed:t.speed[0] + Math.random() * (t.speed[1] - t.speed[0]), alert, cd:0, alive:true, wp:null, tgt:null, retarget:0, scream:0});
   }
   function zombiePoint(room){
     const r = ROOMS[room];
@@ -186,34 +299,39 @@
   }
   function initMission(){
     DOORS.forEach(d => { d.sealed = 0; d.cd = 0; });
-    const picks = ROSTER.filter(p => state.selected.has(p.id) && available(p.id));
+    applyBuilding();
+    const picks = team().filter(p => state.selected.has(p.id) && available(p.id));
     m = {running:true, elapsed:0, kills:0, cp:2, cpRegen:0, noise:state.route === "vehicle" ? 25 : 0, wavesFired:0,
       ammo:state.carryAmmo, ammoStart:state.carryAmmo, meds:state.carryMeds, medsStart:state.carryMeds, loot:false,
-      stance:state.stance, faw:true, squadRoom:3, prevRoom:3, holdT:0, push:false, objective:"reach",
-      barricade:arrivalBarricade(), seen:ROOMS.map((_, i) => state.recon || i === 3), recon:state.recon, route:state.route,
-      units:[], zombies:[], civs:[], shots:[], particles:[], blasts:[], crises:[], arm:null, focus:null,
-      bloaterWarned:new Set(), escorts:new Set(), crisisSig:"", hudSig:"", civStart:camp.civilians, report:null};
+      stance:state.stance, faw:true, squadRoom:ENTRY, prevRoom:ENTRY, holdT:0, push:false, objective:"reach", clearT:0, holdNoted:false, pulled:false,
+      barricade:arrivalBarricade(), seen:ROOMS.map((_, i) => state.recon || i === ENTRY), recon:state.recon, route:state.route,
+      units:[], zombies:[], civs:[], shots:[], particles:[], blasts:[], crises:[], arm:null, focus:null, extra:Math.max(0, picks.length - 4),
+      bloaterWarned:new Set(), escorts:new Set(), crisisSig:"", hudSig:"", civStart:cur().civilians, report:null};
     m.units = picks.map((p, i) => {
-      const hurt = p.id === "joel" && rec("joel").status === "wounded";
+      const hurt = p.id === "joel" && rec("joel").status === "hurt";
       return {...p, kind:"unit", x:62 + (i % 2) * 26, y:430 + Math.floor(i / 2) * 28, room:3, maxHp:p.hp, hp:hurt ? Math.round(p.hp * .6) : p.hp,
         status:"ACTIVE", cool:Math.random() * .5, bleed:0, carry:0, lastHit:-99, tired:isTired(p.id)};
     });
-    const n = missionThreat(), bRoom = bloaterRoomFor(camp.day);
+    const n = missionThreat() + m.extra * 2, bRoom = bloaterRoomFor(camp.day), sRoom = screamerRoomFor(camp.day);
     const bp = zombiePoint(bRoom); addZombie("bloater", bRoom, bp.x, bp.y, false);
+    const sp = zombiePoint(sRoom); addZombie("screamer", sRoom, sp.x, sp.y, false);
     const weights = [3, 3, 4, .5, 3, 3], total = weights.reduce((a, b) => a + b, 0);
-    for(let i = 1; i < n; i++){
+    for(let i = 2; i < n; i++){
       let room;
-      if(i <= 3) room = 2; // the stockroom always has company
+      if(i <= 4) room = CIV; // the civilians' room always has company
       else { let roll = Math.random() * total; room = 0; while(roll > weights[room]){ roll -= weights[room]; room++; } }
-      const p = zombiePoint(room); addZombie(i % 7 === 0 ? "armoured" : "shambler", room, p.x, p.y, false);
+      const p = zombiePoint(room);
+      addZombie(i % B.armouredEvery === 0 ? "armoured" : i > n - 1 - B.runnersStart ? "runner" : "shambler", room, p.x, p.y, false);
     }
-    for(let i = 0; i < camp.civilians; i++) m.civs.push({kind:"civ", room:2, x:975 + (i % 2) * 30, y:76 + Math.floor(i / 2) * 24, hp:30, status:"trapped"});
+    for(let i = 0; i < cur().civilians; i++) m.civs.push({kind:"civ", room:CIV, x:975 + (i % 2) * 30, y:76 + Math.floor(i / 2) * 24, hp:30, status:"trapped"});
+    $("#combat-title").textContent = B.title; $("#combat-eyebrow").textContent = `MISSION 0${camp.bIdx + 1} · DAY ${camp.day}`;
     $("#log-stream").innerHTML = "";
     addLog(`Day ${camp.day}. Team entered through the western service door.`);
-    addLog(state.recon ? `Recon mapped every room. Bloater sighted in the ${roomName(bRoom)}.` : "No recon. Most rooms are blind until the team is next to them.");
+    addLog(state.recon ? `Recon mapped every room. Bloater in the ${roomName(bRoom)}, a screamer in the ${roomName(sRoom)}.` : "No recon. Most rooms are blind until the team is next to them.");
     if(state.route === "vehicle") addLog("The engine noise carried. Noise starts at 25.", "critical");
     else addLog("Came in on foot. Nothing heard them. Yet.");
-    addLog(`Stockroom barricade at ${Math.round(m.barricade)}%. Anything left in there is clawing at it.`);
+    if(B.noiseDecay > .5) addLog("The compressors drown out some of your noise. It fades faster here.");
+    addLog(`${B.labels[CIV][0] + B.labels[CIV].slice(1).toLowerCase()} barricade at ${Math.round(m.barricade)}%. Anything in there is clawing at it. Loud noise pulls them off it.`);
     $("#pause-btn").classList.remove("selected"); $("#pause-btn").textContent = "Ⅱ"; state.paused = false;
     m.hudSig = ""; renderHud(); renderCrisis();
   }
@@ -248,15 +366,19 @@
     m.units.forEach(u => { if(u.status === "DEAD") return; m.seen[u.room] = true; ADJ[u.room].forEach(n => { m.seen[n.r] = true; }); });
     updateUnits(step); updateZombies(step); updateCivs(step); separate();
     if(m.objective === "reach" && m.barricade > 0){
-      const n = m.zombies.filter(z => z.alive && !z.alert && z.room === 2).length;
+      const n = m.zombies.filter(z => z.alive && !z.alert && z.room === CIV).length;
       m.barricade = Math.max(0, m.barricade - n * .18 * step);
       if(m.barricade <= 0) barricadeBroke();
-    } else if(m.objective === "reach" && roomHasZombies(2)){
-      // barricade down: one trapped civilian lost every 10s while infected hold the stockroom
+    } else if(m.objective === "reach" && roomHasZombies(CIV)){
+      // barricade down: one trapped civilian lost every 10s while infected hold the room
       m.civClock = (m.civClock || 0) + step;
       if(m.civClock >= 10){ m.civClock = 0; const c = m.civs.find(c => c.status === "trapped"); if(c) civDies(c); }
     }
-    m.noise = Math.max(0, m.noise - .5 * step + ((m.stance === "aggressive" || m.push) && !arrived() ? .5 * step : 0));
+    // the trade-off: loud enough and the infected at the barricade turn toward the gunfire
+    if(m.objective === "reach" && m.noise >= 45 && !m.pulled && m.zombies.some(z => z.alive && !z.alert && z.room === CIV)){
+      m.pulled = true; wakeRoom(CIV); addLog(`Noise 45: the infected in the ${roomName(CIV)} turn from the barricade toward the gunfire.`, "kill");
+    }
+    m.noise = Math.max(0, m.noise - B.noiseDecay * step + ((m.stance === "aggressive" || m.push) && !arrived() ? .5 * step : 0));
     checkWaves();
     const joel = m.units.find(u => u.id === "joel");
     if(m.cp >= 3) m.cpRegen = 0;
@@ -285,7 +407,7 @@
       if(u.status === "DOWN"){
         u.bleed -= step;
         if(u.bleed <= 0){
-          if(u.id === "joel") u.bleed = 0;
+          if(u.id === "joel"){ u.bleed = 0; if(!u.critical){ u.critical = true; addLog("Joel is critical. He will live, but he will be out of the fight for longer.", "critical"); } }
           else { u.status = "DEAD"; addLog(`${u.name} bled out in the ${roomName(u.room)}.`, "critical"); }
         }
         continue;
@@ -366,8 +488,16 @@
       if(!z.alive) continue;
       z.cd -= step;
       if(!z.alert && m.units.some(u => u.status !== "DEAD" && u.room === z.room)) z.alert = true;
+      if(z.type === "screamer"){
+        if(!z.alert && m.noise >= 60) z.alert = true; // anything that loud wakes it
+        if(z.alert){
+          if(z.scream === 0){ addLog(`A screamer in the ${roomName(z.room)} is drawing breath. Kill it before it brings the street.`, "critical"); z.scream = .01; }
+          z.scream += step;
+          if(z.scream >= 5){ z.scream = -9; scream(z); }
+        }
+      }
       if(!z.alert){
-        if(z.room === 2 && m.objective === "reach"){
+        if(z.room === CIV && m.objective === "reach"){
           if(m.barricade > 0){ if(!z.wp || dist(z, z.wp) < 4) z.wp = {x:912 + Math.random() * 25, y:70 + Math.random() * 85}; moveToward(z, z.wp, z.speed * .4 * step); clampRoom(z); continue; }
           if(!z.wp || dist(z, z.wp) < 4) z.wp = {x:955 + Math.random() * 70, y:70 + Math.random() * 80};
           moveToward(z, z.wp, z.speed * .4 * step); clampRoom(z); continue;
@@ -423,34 +553,52 @@
     while(m.wavesFired < 3 && m.noise >= WAVE_AT[m.wavesFired]){ spawnWave(WAVE_SIZE[m.wavesFired], WAVE_AT[m.wavesFired]); m.wavesFired++; }
     if(m.wavesFired >= 3 && m.noise >= 100){ spawnWave(6, 100); m.noise = 75; }
   }
+  function scream(z){
+    m.noise += 10; wakeRoom(z.room); ADJ[z.room].forEach(n => wakeRoom(n.r));
+    m.blasts.push({x:z.x, y:z.y, t:.6, scream:true});
+    addLog(`The screamer in the ${roomName(z.room)} shrieked. +10 noise, and the rooms around it are awake.`, "critical");
+  }
   function spawnWave(size, at){
+    size += Math.ceil(m.extra / 2); // a bigger team is a bigger signal
     const edge = m.wavesFired === 0 && m.route === "vehicle" ? EDGES[1] : EDGES[Math.floor(Math.random() * EDGES.length)];
+    const runners = (m.wavesFired >= 1 ? Math.floor(size / 3) : 0) + (B.runnersStart ? 1 : 0);
     for(let i = 0; i < size; i++){
       const r = ROOMS[edge.room];
-      addZombie(size >= 6 && i === 0 ? "armoured" : "shambler", edge.room, clamp(edge.x + (Math.random() - .5) * 40, r.x + 12, r.x + r.w - 12), clamp(edge.y + (Math.random() - .5) * 40, r.y + 12, r.y + r.h - 12), true);
+      addZombie(size >= 6 && i === 0 ? "armoured" : i >= size - runners ? "runner" : "shambler", edge.room, clamp(edge.x + (Math.random() - .5) * 40, r.x + 12, r.x + r.w - 12), clamp(edge.y + (Math.random() - .5) * 40, r.y + 12, r.y + r.h - 12), true);
     }
     wakeRoom(edge.room);
-    addLog(`Noise ${at}: ${size} infected pushing in through the ${edge.label}.`, "critical");
+    addLog(`Noise ${at}: ${size} infected${runners ? (runners === 1 ? ", one of them a runner," : `, ${runners} of them runners,`) : ""} pushing in through the ${edge.label}.`, "critical");
   }
   function barricadeBroke(){
-    addLog("The stockroom barricade is down. The civilians are exposed.", "critical");
+    addLog(`The ${roomName(CIV)} barricade is down. The civilians are exposed.`, "critical");
     if(m.civs.some(c => c.status === "trapped")) pushCrisis({kind:"barricade"});
   }
   function autoAdvance(step){
+    m.holding = false;
     if(m.holdT > 0){ m.holdT -= step; return; }
     if(!arrived()) return;
-    const goal = m.objective === "reach" ? 2 : m.objective === "extract" ? 3 : null;
-    if(goal === null || m.squadRoom === goal){ if(m.squadRoom === 2) m.push = false; return; }
-    const go = m.push || m.stance === "aggressive" || (m.stance === "controlled" && !roomHasZombies(m.squadRoom));
-    if(!go) return;
-    m.prevRoom = m.squadRoom; m.squadRoom = nextStep(m.squadRoom, goal);
+    const goal = m.objective === "reach" ? CIV : m.objective === "extract" ? ENTRY : null;
+    if(goal === null || m.squadRoom === goal){ if(m.squadRoom === CIV) m.push = false; return; }
+    const clear = !roomHasZombies(m.squadRoom);
+    m.clearT = clear ? m.clearT + step : 0;
+    const next = nextStep(m.squadRoom, goal);
+    // defensive: still moves, but only once this room has been quiet for 3s and nothing is seen in the next one
+    const nextQuiet = !(m.seen[next] && roomHasZombies(next));
+    const go = m.push || m.stance === "aggressive" || (m.stance === "controlled" && clear) || (m.stance === "defensive" && m.clearT >= 3 && nextQuiet);
+    if(!go){
+      m.holding = m.stance === "defensive" && clear;
+      if(m.holding && m.clearT >= 6 && !m.holdNoted){ m.holdNoted = true; addLog(`Defensive: holding until the ${roomName(next)} is clear. Switch stance or order Advance to move now.`); }
+      return;
+    }
+    m.holdNoted = false; m.clearT = 0;
+    m.prevRoom = m.squadRoom; m.squadRoom = next;
     addLog(`Team moving into the ${roomName(m.squadRoom)}.`);
   }
   function checkObjective(){
     if(m.objective === "reach"){
       const alive = m.civs.filter(c => c.status === "trapped");
-      if(!alive.length){ m.objective = "none"; addLog("No one is left alive in the stockroom.", "critical"); return; }
-      if(m.units.some(u => u.status === "ACTIVE" && u.room === 2) && !roomHasZombies(2)){
+      if(!alive.length){ m.objective = "none"; addLog(`No one is left alive in the ${roomName(CIV)}.`, "critical"); return; }
+      if(m.units.some(u => u.status === "ACTIVE" && u.room === CIV) && !roomHasZombies(CIV)){
         m.objective = "choose"; m.push = false; m.loot = true; m.ammo += 30; m.meds += 1;
         addLog(`Reached ${plural(alive.length, "civilian")}. Medical cache recovered: +30 rounds, +1 med.`, "kill");
         pushCrisis({kind:"split"});
@@ -463,12 +611,17 @@
     if(!m.units.some(u => u.status === "ACTIVE")){ endMission("failure"); return; }
     if(m.objective === "extract"){
       const f = m.civs.filter(c => c.status === "following");
-      if(f.length && f.every(c => c.room === 3) && m.units.every(u => u.status !== "ACTIVE" || u.room === 3)) endMission("success");
+      if(f.length && f.every(c => c.room === ENTRY) && m.units.every(u => u.status !== "ACTIVE" || u.room === ENTRY)) endMission("success");
     }
   }
 
-  // ---------- crises (real events, queued, real-time timers, sim slows to 0.25x) ----------
-  function pushCrisis(c){ c.uid = ++crisisSeq; c.t = c.max = 8; m.crises.push(c); m.crisisSig = ""; renderCrisis(); }
+  // ---------- crises (real events, queued; the sim pauses while one is open, so game speed never eats the window) ----------
+  const CRISIS_SECONDS = 12;
+  function pushCrisis(c){
+    c.uid = ++crisisSeq; c.t = c.max = CRISIS_SECONDS; m.crises.push(c); m.crisisSig = "";
+    if(m.arm){ m.arm = null; addLog("Order on hold. Deal with this first."); }
+    renderCrisis();
+  }
   function crisisValid(c){
     if(c.kind === "down") return c.unit.status === "DOWN";
     if(c.kind === "bloater") return c.z.alive;
@@ -478,27 +631,33 @@
   }
   const threatNear = u => m.zombies.some(z => z.alive && dist(z, u) < 70);
   const nearestAlly = u => m.units.filter(a => a !== u && a.status === "ACTIVE" && a.carry <= 0).sort((a, b) => (RDIST[a.room][u.room] * 500 + dist(a, u)) - (RDIST[b.room][u.room] * 500 + dist(b, u)))[0];
+  // honest odds: every infected close to the casualty makes the patch-up less likely; a medic helps
+  const closeInfected = u => m.zombies.filter(z => z.alive && z.room === u.room && dist(z, u) < 130).length;
+  function stabilizeChance(u){
+    const medic = m.units.some(x => x.medic && x.status === "ACTIVE" && x !== u);
+    return clamp(.8 - closeInfected(u) * .14 + (medic ? .12 : 0) - (u.critical ? .15 : 0), .15, .92);
+  }
   function stabilize(u){
-    const medic = m.units.some(x => x.medic && x.status === "ACTIVE");
-    if(!threatNear(u) || Math.random() < .5){ u.status = "ACTIVE"; u.hp = Math.round((medic ? 60 : 40) * .7); u.bleed = 0; addLog(`${u.name} is patched up and back on their feet.`, "critical"); }
-    else addLog(`They couldn't hold the line around ${u.name}. The med is gone and ${u.name} is still down.`, "critical");
+    const medic = m.units.some(x => x.medic && x.status === "ACTIVE" && x !== u), p = stabilizeChance(u);
+    if(Math.random() < p){ u.status = "ACTIVE"; u.hp = Math.round((medic ? 60 : 40) * .7); u.bleed = 0; u.patched = true; addLog(`${u.name} is patched up and back on their feet.`, "critical"); }
+    else { u.bleed = Math.max(1, u.bleed - 4); addLog(`It didn't take. The med is gone and ${u.name} is still down, worse than before.`, "critical"); }
   }
   function crisisView(c){
     if(c.kind === "down"){
-      const u = c.unit, ally = nearestAlly(u), near = m.zombies.filter(z => z.alive && dist(z, u) < 120).length;
+      const u = c.unit, ally = nearestAlly(u), near = closeInfected(u), pct = Math.round(stabilizeChance(u) * 100);
       return {
         title:`${u.name} is down`,
-        copy:u.id === "joel" ? `Joel is down in the ${roomName(u.room)}. He will live, but command will not recover until he is back up.`
+        copy:u.id === "joel" ? `Joel is down in the ${roomName(u.room)} with ${near} infected close. No command regen while he is down. If the team is overrun with him down, he is out for days and the base pays to get him back.`
           : `${u.name} is down in the ${roomName(u.room)} with ${near} infected close. Bleeds out in about ${Math.ceil(u.bleed)}s.`,
         options:[
           {id:"rescue", label:"Drag them clear", sub:ally ? `2 command · ${ally.name} carries, can't fire for 6s` : "2 command · no one free to carry", disabled:m.cp < 2 || !ally,
             run(){ m.cp -= 2; u.status = "INJURED"; u.hp = Math.max(1, Math.round(u.maxHp * .25)); ally.carry = 6; addLog(`${ally.name} dragged ${u.name} clear. Out of the fight, but alive.`, "critical"); }},
-          {id:"cover", label:"Cover and stabilize", sub:`1 command + 1 med · ${threatNear(u) ? "under attack, may fail" : "area quiet"}`, disabled:m.cp < 1 || m.meds < 1,
+          {id:"cover", label:"Cover and stabilize", sub:`1 command + 1 med · ${pct}% to hold${near ? `, ${near} infected close` : ", area quiet"}`, disabled:m.cp < 1 || m.meds < 1,
             run(){ m.cp--; m.meds--; stabilize(u); }},
           u.id === "joel"
             ? {id:"leave", label:"Fight on without him", sub:"Free · no command regen while he is down", danger:true, run(){ addLog("The team fights on. Joel is still down.", "critical"); }}
             : {id:"leave", label:"Leave them", sub:"Free · they will not come back", danger:true, run(){ u.status = "DEAD"; addLog(`Joel ordered the team to leave ${u.name}.`, "critical"); }}
-        ],
+        ], defaults:["rescue", "cover"],
         expire(){ addLog(`No order came. ${u.name} is still down.`, "critical"); }
       };
     }
@@ -512,7 +671,7 @@
           {id:"fallback", label:"Fall back", sub:m.prevRoom === m.squadRoom ? "Nowhere to fall back to" : `Free · back to the ${roomName(m.prevRoom)}, lose time`, disabled:m.prevRoom === m.squadRoom,
             run(){ const r = m.prevRoom; m.prevRoom = m.squadRoom; m.squadRoom = r; m.holdT = 8; addLog(`Team falling back to the ${roomName(r)}.`); }},
           {id:"hold", label:"Hold ground", sub:"Free · risk the blast", danger:true, run(){ addLog("Holding. Nobody breathes."); }}
-        ],
+        ], defaults:["focus", "fallback"],
         expire(){ addLog("No order. The team holds where it is."); }
       };
     }
@@ -524,23 +683,24 @@
       const take = n => () => {
         m.civs.filter(x => x.status === "trapped").slice(0, n).forEach(x => { x.status = "following"; });
         m.barricade = 60; m.objective = "extract";
-        addLog(`${plural(n, "civilian")} fall in behind the team.${left - n ? ` ${left - n} stay behind a rebuilt barricade.` : ""} Out through the western service door, in the aisles.`);
+        addLog(`${plural(n, "civilian")} fall in behind the team.${left - n ? ` ${left - n} ${left - n === 1 ? "stays" : "stay"} behind a rebuilt barricade.` : ""} Out through the western service door, in the ${roomName(ENTRY)}.`);
       };
       const shooters = n => Math.max(0, able - n);
       return {
         title:"Who comes out today?",
-        copy:`${plural(left, "civilian")} in the stockroom, ${able} troopers on their feet. Each civilian needs an escort, and an escort can't shoot. The rest wait for another day.`,
-        options:counts.map(n => ({id:"take" + n, label:n === left ? `Take all ${n}` : `Take ${n}`, sub:`Free · ${shooters(n)} left shooting`, danger:shooters(n) === 0, run:take(n)})),
+        copy:`${plural(left, "civilian")} in the ${roomName(CIV)}, ${able} troopers on their feet. Each civilian needs an escort, and an escort can't shoot. The rest wait for another day.`,
+        options:counts.map(n => ({id:"take" + n, label:n === left ? `Take all ${n}` : `Take ${n}`, sub:`Free · ${shooters(n)} left shooting`, danger:shooters(n) === 0, run:take(n)})), defaults:[],
+        defaultLabel:`the team takes ${Math.min(left, Math.max(1, able - 2))}`,
         expire(){ const n = Math.min(left, Math.max(1, able - 2)); addLog("No order. The team takes who it can protect."); take(n)(); }
       };
     }
     return {
       title:"The barricade is down",
-      copy:`The stockroom barricade gave in. ${plural(left, "civilian")} and whatever was clawing at the door are in the same room now. One dies every 10 seconds until the stockroom is clear.`,
+      copy:`The ${roomName(CIV)} barricade gave in. ${plural(left, "civilian")} and whatever was clawing at the door are in the same room now. One dies every 10 seconds until the room is clear.`,
       options:[
-        {id:"push", label:"Push to the stockroom", sub:"1 command · go now, fast and loud", disabled:m.cp < 1, run(){ m.cp--; m.push = true; m.holdT = 0; addLog(`Joel: "Move. Now. Stockroom."`, "critical"); }},
+        {id:"push", label:`Push to the ${roomName(CIV)}`, sub:"1 command · go now, fast and loud", disabled:m.cp < 1, run(){ m.cp--; m.push = true; m.holdT = 0; addLog(`Joel: "Move. Now. Get to them."`, "critical"); }},
         {id:"hold", label:"Stay the course", sub:"Free · the civilians are on their own", danger:true, run(){ addLog("The team keeps its pace."); }}
-      ],
+      ], defaults:["push"],
       expire(){ addLog("No order. The team keeps its pace.", "critical"); }
     };
   }
@@ -549,21 +709,31 @@
     const opt = crisisView(c).options.find(o => o.id === id); if(!opt || opt.disabled) return;
     opt.run(); m.crises.shift(); m.crisisSig = ""; renderCrisis(); renderHud();
   }
+  // the default when no order comes: the first affordable sensible option, never the cruel one
+  const defaultOption = v => (v.defaults || []).map(id => v.options.find(o => o.id === id)).find(o => o && !o.disabled);
   function tickCrises(real){
     while(m.crises.length && !crisisValid(m.crises[0])){ m.crises.shift(); m.crisisSig = ""; }
     const c = m.crises[0]; if(!c) return;
     c.t -= real;
-    if(c.t <= 0){ crisisView(c).expire(); m.crises.shift(); m.crisisSig = ""; }
+    if(c.t <= 0){
+      const v = crisisView(c), d = defaultOption(v);
+      if(d){ addLog(`No order in time. The squad leader's call: ${d.label.toLowerCase()}.`); d.run(); } else v.expire();
+      m.crises.shift(); m.crisisSig = "";
+    }
   }
   $("#crisis-actions").onclick = e => { const b = e.target.closest("button[data-opt]"); if(b && !b.disabled) resolveCrisis(b.dataset.opt); };
   function renderCrisis(){
     const ov = $("#crisis-overlay"), c = m && m.running && m.crises[0];
     if(!c){ ov.classList.remove("open"); return; }
     ov.classList.add("open");
+    // phone: the card docks over the log only, so the map, stances and orders stay usable
+    if(matchMedia("(max-width:760px)").matches){ const lp = $(".battle-log-panel"), sc = $("#combat-screen"); ov.style.top = `${lp.getBoundingClientRect().top - sc.getBoundingClientRect().top}px`; }
+    else ov.style.top = "";
     const v = crisisView(c);
     $("#crisis-title").textContent = v.title; $("#crisis-copy").textContent = v.copy;
     $("#crisis-timer-fill").style.width = `${Math.max(0, c.t / c.max) * 100}%`;
-    $("#crisis-queue").textContent = m.crises.length > 1 ? `+${m.crises.length - 1} more waiting · sim slowed` : "Sim slowed while you decide";
+    const d = defaultOption(v), dl = d ? d.label.toLowerCase() : v.defaultLabel || "nothing changes";
+    $("#crisis-queue").textContent = `Paused · no order in ${Math.ceil(Math.max(0, c.t))}s: ${dl}${m.crises.length > 1 ? ` · +${m.crises.length - 1} more waiting` : ""}`;
     const sig = c.uid + "|" + v.options.map(o => `${o.disabled ? 0 : 1}${o.sub}`).join("|");
     if(sig === m.crisisSig) return; m.crisisSig = sig;
     $("#crisis-actions").style.gridTemplateColumns = `repeat(${v.options.length},1fr)`;
@@ -578,12 +748,12 @@
     if(cmd === "advance" || cmd === "seal"){
       if(m.arm === cmd){ m.arm = null; addLog("Order cancelled."); }
       else if(m.cp < 1) addLog("Not enough command. Joel needs time to read the situation.");
-      else { m.arm = cmd; addLog(cmd === "advance" ? "Advance: click a room on the map." : "Seal: click a door on the map."); }
+      else { m.arm = cmd; addLog(cmd === "advance" ? "Advance: tap a room on the map, or pick one below." : "Seal: tap a door on the map, or pick one below."); }
     } else if(cmd === "focus"){
       const live = m.zombies.filter(z => z.alive && m.units.some(u => u.status === "ACTIVE" && RDIST[u.room][z.room] <= 1));
-      const pick = live.find(z => z.type === "bloater") || live.find(z => z.type === "armoured") || live.sort((a, b) => a.hp - b.hp)[0];
+      const pick = live.find(z => z.type === "screamer" && z.alert) || live.find(z => z.type === "bloater") || live.find(z => z.type === "armoured") || live.find(z => z.type === "screamer") || live.sort((a, b) => a.hp - b.hp)[0];
       if(!pick) addLog("Nothing in sight to focus on.");
-      else if(spend(1)){ m.focus = {z:pick, t:8}; addLog(`All fire on the ${pick.type === "shambler" ? "nearest infected" : pick.type} in the ${roomName(pick.room)}.`, "kill"); }
+      else if(spend(1)){ m.focus = {z:pick, t:8}; addLog(`All fire on the ${pick.type === "shambler" || pick.type === "runner" ? "nearest infected" : pick.type} in the ${roomName(pick.room)}.`, "kill"); }
     } else if(cmd === "gear"){
       if(m.meds < 1){ addLog("No meds left in the kit."); }
       else {
@@ -610,23 +780,39 @@
     const r = canvas.getBoundingClientRect(), s = Math.min(r.width / W, r.height / H);
     return {x:(e.clientX - r.left - (r.width - W * s) / 2) / s, y:(e.clientY - r.top - (r.height - H * s) / 2) / s};
   }
+  function orderAdvance(r){
+    if(r < 0 || r === m.squadRoom){ addLog("Pick a different room."); return; }
+    if(!spend(1)) { m.arm = null; return; }
+    m.prevRoom = m.squadRoom; m.squadRoom = r; m.holdT = 0; m.arm = null; m.clearT = 0;
+    addLog(`Joel: "Move to the ${roomName(r)}."`);
+  }
+  function orderSeal(d){
+    if(!d){ addLog("Tap closer to a door."); return; }
+    if(!spend(1)) { m.arm = null; return; }
+    d.sealed = 20; m.noise += 3; m.arm = null;
+    addLog(`The ${doorName(d)} is wedged shut. About 20 seconds.`);
+  }
   canvas.onclick = e => {
     if(!m || !m.arm || !m.running) return; const p = toMap(e);
-    if(m.arm === "advance"){
-      const r = ROOMS.findIndex(R => p.x >= R.x && p.x <= R.x + R.w && p.y >= R.y && p.y <= R.y + R.h);
-      if(r < 0 || r === m.squadRoom){ addLog("Pick a different room."); return; }
-      if(!spend(1)) { m.arm = null; return; }
-      m.prevRoom = m.squadRoom; m.squadRoom = r; m.holdT = 0; m.arm = null;
-      addLog(`Joel: "Move to the ${roomName(r)}."`);
-    } else {
-      const d = DOORS.filter(d => dist(d, p) < 55).sort((a, b) => dist(a, p) - dist(b, p))[0];
-      if(!d){ addLog("Click closer to a door."); return; }
-      if(!spend(1)) { m.arm = null; return; }
-      d.sealed = 20; m.noise += 3; m.arm = null;
-      addLog(`The ${doorName(d)} is wedged shut. About 20 seconds.`);
-    }
+    const rr = canvas.getBoundingClientRect(), s = Math.min(rr.width / W, rr.height / H);
+    if(m.arm === "advance") orderAdvance(ROOMS.findIndex(R => p.x >= R.x && p.x <= R.x + R.w && p.y >= R.y && p.y <= R.y + R.h));
+    else orderSeal(DOORS.filter(d => dist(d, p) < Math.max(55, 30 / s)).sort((a, b) => dist(a, p) - dist(b, p))[0]); // at least a 60px tap circle on screen
     renderHud();
   };
+  // the same orders as buttons: big tap targets on a phone
+  $("#pick-bar").onclick = e => {
+    const b = e.target.closest("button[data-pick]"); if(!b || !m || !m.running || !m.arm) return;
+    const v = +b.dataset.pick;
+    if(b.dataset.kind === "room") orderAdvance(v); else orderSeal(DOORS[v]);
+    renderHud();
+  };
+  function renderPick(){
+    const bar = $("#pick-bar");
+    if(!m || !m.arm){ bar.hidden = true; bar.innerHTML = ""; return; }
+    bar.hidden = false;
+    if(m.arm === "advance") bar.innerHTML = ROOMS.map((R, i) => i === m.squadRoom ? "" : `<button data-kind="room" data-pick="${i}">${m.seen[i] ? R.label : "? " + R.label}</button>`).join("");
+    else bar.innerHTML = ADJ[m.squadRoom].map(({d, r}) => `<button data-kind="door" data-pick="${DOORS.indexOf(d)}">${d.sealed > 0 ? "▣ " : ""}DOOR TO ${ROOMS[r].label}</button>`).join("");
+  }
 
   // ---------- end of mission: resolve everything synchronously, then show ----------
   function endMission(reason){
@@ -635,13 +821,15 @@
     const anyActive = m.units.some(u => u.status === "ACTIVE");
     m.units.forEach(u => {
       if(u.status !== "DOWN") return;
-      const carried = u.id === "joel" || (reason === "success" && anyActive) || (reason === "retreat" && m.units.some(a => a.status === "ACTIVE" && a.room === u.room));
-      if(carried){ u.status = "INJURED"; u.carriedOut = true; } else { u.status = "DEAD"; u.leftBehind = true; }
+      const carried = (reason === "success" && anyActive) || (reason === "retreat" && m.units.some(a => a.status === "ACTIVE" && a.room === u.room));
+      if(carried){ u.status = "INJURED"; u.carriedOut = true; }
+      else if(u.id === "joel"){ u.status = "INJURED"; u.overrun = true; } // story-protected, but not free: see writeBack
+      else { u.status = "DEAD"; u.leftBehind = true; }
     });
     let rescued = 0, scrambled = 0;
     m.civs.forEach(c => {
       if(c.status !== "following") return;
-      if(reason === "success" || (reason === "retreat" && (c.room === 3 || Math.random() < .5))){ c.status = "out"; rescued++; }
+      if(reason === "success" || (reason === "retreat" && (c.room === ENTRY || Math.random() < .5))){ c.status = "out"; rescued++; }
       else { c.status = "dead"; if(reason === "retreat") scrambled++; }
     });
     const lost = m.civs.filter(c => c.status === "dead").length;
@@ -650,49 +838,93 @@
     writeBack(m.report);
     setTimeout(showResults, 700);
   }
+  const RECRUITS = [
+    {name:"Marco",color:"#c98f6b"},{name:"Anya",color:"#8fb3d9"},{name:"Lev",color:"#a3c27a"},{name:"Priya",color:"#d99ab8"},{name:"Omar",color:"#c7b46a"},{name:"Hana",color:"#7fc9b0"}
+  ];
+  // every second civilian brought home, one of them picks up a rifle (if there is room on the team)
+  function volunteers(){
+    const out = [];
+    while(Math.floor(camp.rescuedTotal / 2) > (camp.recruitsEarned || 0)){
+      const alive = team().filter(p => rec(p.id).status !== "dead").length;
+      const pick = RECRUITS[camp.recruits.length];
+      if(alive >= 6 || !pick) break; // no room yet: the volunteer waits until there is
+      camp.recruitsEarned = (camp.recruitsEarned || 0) + 1;
+      const id = "r" + camp.recruits.length;
+      camp.recruits.push({id, name:pick.name, role:"Volunteer", trait:"Rookie · +50% noise, learning fast", hp:80, color:pick.color, dmg:18, rof:.8, rookie:true});
+      camp.roster[id] = {status:"fit", out:0, lastDay:-99};
+      out.push(pick.name);
+    }
+    return out;
+  }
   function writeBack(r){
-    ROSTER.forEach(p => { const x = rec(p.id); if(x.status === "wounded"){ x.out--; if(x.out <= 0){ x.status = "fit"; x.out = 0; } } });
+    team().forEach(p => { const x = rec(p.id); if(x.status === "wounded"){ x.out--; if(x.out <= 0){ x.status = "fit"; x.out = 0; } } else if(x.status === "hurt") x.status = "fit"; });
+    let toll = "";
     m.units.forEach(u => {
       const x = rec(u.id); x.lastDay = camp.day;
+      if(u.id === "joel"){
+        if(u.status === "INJURED" || u.patched){
+          // Joel can't die, but a downed Joel costs days of command, and an overrun costs the base
+          const days = (u.overrun ? 2 : 1) + (u.critical ? 1 : 0);
+          x.status = "wounded"; x.out = days;
+          if(u.overrun){ toll = " Getting Joel back cost the base 40 rounds and a med."; }
+          u.outcome = `${u.overrun ? "Dragged out by the base" : "Downed"} · can't lead for ${plural(days, "day")}`;
+        } else if(u.hp < u.maxHp * .4){ x.status = "hurt"; x.out = 0; u.outcome = "Hurt · still leads, at reduced HP"; }
+        else { x.status = "fit"; x.out = 0; u.outcome = "Returned"; }
+        return;
+      }
       if(u.status === "DEAD"){ x.status = "dead"; x.out = 0; u.outcome = u.leftBehind ? "Killed · left behind" : "Killed in action"; }
-      else if(u.status === "INJURED"){ x.status = "wounded"; x.out = 2; u.outcome = u.id === "joel" ? "Wounded · still leads, at reduced HP" : "Wounded · out 2 days"; }
-      else if(u.hp < u.maxHp * .4){ x.status = "wounded"; x.out = 1; u.outcome = u.id === "joel" ? "Hurt · still leads, at reduced HP" : "Hurt · out 1 day"; }
+      else if(u.status === "INJURED"){ x.status = "wounded"; x.out = 2; u.outcome = "Wounded · out 2 days"; }
+      else if(u.hp < u.maxHp * .4){ x.status = "wounded"; x.out = 1; u.outcome = "Hurt · out 1 day"; }
       else { x.status = "fit"; x.out = 0; u.outcome = "Returned"; }
     });
     camp.ammo = Math.max(0, camp.ammo - m.ammoStart + m.ammo);
     camp.meds = Math.max(0, camp.meds - m.medsStart + m.meds);
-    camp.civilians -= r.rescued + r.lost; camp.rescued += r.rescued; camp.lost += r.lost;
-    const growth = 8 + Math.floor(m.noise / 15); // the noise you leave behind draws more in
-    camp.infected = Math.max(6, m.zombies.filter(z => z.alive).length + growth);
+    if(toll){ camp.ammo = Math.max(0, camp.ammo - 40); camp.meds = Math.max(0, camp.meds - 1); }
+    const s = cur();
+    s.civilians -= r.rescued + r.lost; s.rescued += r.rescued; s.lost += r.lost; camp.rescuedTotal = (camp.rescuedTotal || 0) + r.rescued;
+    // smoother curve: what you leave behind still grows, but within a band, so one bad day is not a death spiral
+    const growth = 6 + Math.floor(m.noise / 15);
+    s.infected = clamp(m.zombies.filter(z => z.alive).length + growth, 14, 36);
     let night = "";
-    if(camp.civilians > 0){
-      camp.barricade = Math.round(m.barricade - 10);
-      if(camp.barricade <= 0){ camp.civilians--; camp.lost++; camp.barricade = 40; night = " The barricade failed overnight. One more civilian was lost."; }
+    if(s.civilians > 0){
+      if(m.barricade <= 0){ s.civilians--; s.lost++; s.barricade = 40; night = " The barricade failed overnight. One more civilian was lost."; }
+      else s.barricade = clamp(Math.round(m.barricade + 5), 25, 100); // the survivors shore it up overnight
     }
+    r.left = s.civilians; r.barricade = s.barricade; r.title = B.title;
     const what = r.reason === "success" ? `${r.rescued} rescued` : r.reason === "retreat" ? (r.rescued ? `withdrew with ${r.rescued}` : "withdrew empty-handed") : "the team was overrun";
     const dead = m.units.filter(u => u.status === "DEAD").map(u => u.name);
+    const joined = volunteers();
+    r.joined = joined;
+    camp.report = `Day ${r.day}: ${what}${dead.length ? `, lost ${dead.length > 1 ? dead.slice(0, -1).join(", ") + " and " + dead.at(-1) : dead[0]}` : ""}.${toll}${s.civilians > 0 ? ` ${growth} more infected drifted in overnight.` : ""}${night}${joined.length ? ` ${joined.join(" and ")} volunteered to join the team.` : ""}`;
     camp.day++; camp.missions++;
-    camp.report = `Day ${r.day}: ${what}${dead.length ? `, lost ${dead.join(" and ")}` : ""}. ${growth} more infected drifted in overnight.${night}`;
+    r.resolved = s.civilians <= 0;
+    checkBuilding(); checkEnded();
     saveCampaign();
   }
   function showResults(){
     if(!m || !m.report) return;
-    const r = m.report, dead = m.units.filter(u => u.status === "DEAD"), hurt = m.units.filter(u => u.outcome && /^(Wounded|Hurt)/.test(u.outcome));
+    state.endMode = false;
+    $("#result-eyebrow").textContent = `AFTER-ACTION REPORT · ${m.report.title.toUpperCase()}`; $("#return-ops").textContent = camp.ended ? "See how it ends" : "Return to operations";
+    const r = m.report, dead = m.units.filter(u => u.status === "DEAD"), hurt = m.units.filter(u => u.outcome && /^(Wounded|Hurt|Downed|Dragged)/.test(u.outcome));
     const names = list => list.length > 1 ? list.slice(0, -1).map(u => u.name).join(", ") + " and " + list.at(-1).name : list.map(u => u.name).join("");
+    const joel = m.units.find(u => u.id === "joel");
     $("#result-title").textContent = r.reason === "failure" ? "Signal lost" : r.reason === "retreat" ? "Team withdrawn" : "Team returning";
     let s;
     if(r.reason === "success") s = `${plural(r.rescued, "civilian")} brought out through the service door.${r.lost ? ` ${plural(r.lost, "civilian")} did not make it.` : ""}`;
     else if(r.reason === "retreat") s = r.rescued ? `The team pulled out early with ${plural(r.rescued, "civilian")}.${r.scrambled ? ` ${r.scrambled} lost in the scramble.` : ""}`
-      : `The team pulled out empty-handed.${r.lost ? ` ${plural(r.lost, "civilian")} died in the stockroom.` : ""}${camp.civilians ? ` ${plural(camp.civilians, "civilian")} still trapped, the barricade at ${Math.max(0, camp.barricade)}%.` : ""}`;
-    else s = `The team was overrun. Joel was dragged out of the shop, barely.${r.lost ? ` ${plural(r.lost, "civilian")} died in there.` : ""}`;
+      : `The team pulled out empty-handed.${r.lost ? ` ${plural(r.lost, "civilian")} died inside.` : ""}`;
+    else s = `The team was overrun. Runners from the base dragged Joel out, at a price.${r.lost ? ` ${plural(r.lost, "civilian")} died in there.` : ""}`;
     if(dead.length) s += ` ${names(dead)} ${dead.length > 1 ? "are" : "is"} gone.`;
     if(hurt.length) s += ` ${names(hurt)} will need time.`;
-    if(r.reason === "success" && !dead.length && !hurt.length) s += " For once, everyone is coming home.";
+    const whole = !dead.length && !hurt.length;
+    if(r.reason === "success" && whole && !r.lost && r.left === 0) s += " For once, everyone is coming home.";
+    else if(r.reason === "success" && whole) s += ` The team came back whole${r.left ? `, but ${plural(r.left, "civilian")} still ${r.left === 1 ? "waits" : "wait"} inside` : ""}.`;
+    if(r.joined && r.joined.length) s += ` ${r.joined.join(" and ")} asked to join the team.`;
     $("#result-summary").textContent = s;
     $("#result-grid").innerHTML = `<div><span>INFECTED CLEARED</span><strong>${m.kills}</strong></div><div><span>CIVILIANS OUT</span><strong>${r.rescued} / ${m.civStart}</strong></div><div><span>AMMO USED</span><strong>${r.ammoUsed}</strong></div><div><span>TEAM LOSSES</span><strong>${dead.length}</strong></div>`;
-    $("#result-base").textContent = campaignOver()
-      ? `The shop is resolved: ${camp.rescued} rescued, ${camp.lost} lost. Start a new campaign from the operations map.`
-      : `Base stock: ${camp.ammo} rounds · ${camp.meds} meds. ${plural(camp.civilians, "civilian")} still trapped. Day ${camp.day} next.`;
+    $("#result-base").textContent = r.resolved
+      ? `${r.title} is resolved. ${camp.ended ? "That was the last signal." : `New signal: ${B.mission}.`} Base stock: ${camp.ammo} rounds · ${camp.meds} meds.`
+      : `Base stock: ${camp.ammo} rounds · ${camp.meds} meds. ${plural(r.left, "civilian")} still trapped, barricade ${r.barricade}%. Day ${camp.day} next.${joel && rec("joel").status === "wounded" ? ` Joel can't lead for ${plural(rec("joel").out, "day")}: scavenge or rest.` : ""}`;
     $("#casualty-list").innerHTML = m.units.map(u => `<div class="casualty-row ${u.status === "DEAD" ? "is-dead" : ""}"><strong>${u.name} · ${u.role}</strong><span>${u.outcome}</span></div>`).join("");
     show("result-screen");
   }
@@ -705,7 +937,7 @@
     if(!m || state.screen !== "combat-screen"){ clearInterval(timer); timer = null; return; }
     if(m.running && !state.paused){
       tickCrises(real);
-      let sim = real * state.speed * (m.crises.length ? .25 : 1);
+      let sim = m.crises.length ? 0 : real * state.speed; // a crisis pauses the sim at any speed
       while(sim > 1e-6 && m.running){ const s = Math.min(.05, sim); update(s); sim -= s; }
     }
     draw(); renderHud(); renderCrisis();
@@ -717,7 +949,7 @@
   const fmt = n => { const t = Math.floor(n); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
   function chipText(u){
     if(u.status === "ACTIVE") return `${Math.max(0, Math.round(u.hp))} HP${u.carry > 0 ? " · CARRYING" : m.escorts.has(u) ? " · ESCORT" : ""}`;
-    if(u.status === "DOWN") return u.id === "joel" ? "DOWN" : `DOWN · ${Math.ceil(u.bleed)}s`;
+    if(u.status === "DOWN") return u.id === "joel" ? (u.critical ? "DOWN · CRITICAL" : `DOWN · ${Math.ceil(u.bleed)}s`) : `DOWN · ${Math.ceil(u.bleed)}s`;
     if(u.status === "INJURED") return "CARRIED";
     return "KIA";
   }
@@ -726,9 +958,9 @@
     const joel = m.units.find(u => u.id === "joel"), joelUp = joel && joel.status === "ACTIVE";
     const chips = m.units.map(u => `<div class="unit-chip ${u.status.toLowerCase()}${u.tired ? " tired" : ""}"><strong>${u.name}</strong><small>${chipText(u)}</small></div>`).join("");
     const objective = m.objective === "reach" ? (m.barricade > 0 ? `Reach the civilians · barricade ${Math.ceil(m.barricade)}%` : `Barricade down · next civilian lost in ${Math.ceil(10 - (m.civClock || 0))}s`)
-      : m.objective === "extract" ? `Extract ${plural(m.civs.filter(c => c.status === "following").length, "civilian")} · west door`
+      : m.objective === "extract" ? `Extract ${plural(m.civs.filter(c => c.status === "following").length, "civilian")} · west door${m.holding ? " · holding (defensive)" : ""}`
       : m.objective === "choose" ? "Decide who comes out" : "No one left to save · retreat";
-    const sig = chips + objective + m.cp + m.stance + m.faw + m.arm + m.meds;
+    const sig = chips + objective + m.cp + m.stance + m.faw + m.arm + m.meds + m.squadRoom + m.holding;
     if(sig !== m.hudSig){
       m.hudSig = sig;
       $("#squad-status").innerHTML = chips;
@@ -741,6 +973,7 @@
         b.classList.toggle("off", c !== "retreat" && (m.cp < 1 || (c === "gear" && m.meds < 1)));
         b.classList.toggle("armed", m.arm === c);
       });
+      renderPick();
     }
     $("#cp-regen-label").textContent = !joelUp ? "NO REGEN · JOEL DOWN" : m.cp >= 3 ? "FULL" : `+1 IN ${Math.ceil(12 - m.cpRegen)}s`;
     $("#bandwidth-fill").style.width = `${joelUp && m.cp < 3 ? m.cpRegen / 12 * 100 : m.cp >= 3 ? 100 : 0}%`;
@@ -785,9 +1018,11 @@
       m.zombies.forEach(z => {
         if(!z.alive || !m.seen[z.room]) return;
         const t = ZT[z.type];
-        ctx.fillStyle = z.type === "armoured" ? "#a68d67" : z.type === "bloater" ? "#9aa040" : z.alert ? "#b3372d" : "#6d2a25";
+        ctx.fillStyle = z.type === "armoured" ? "#a68d67" : z.type === "bloater" ? "#9aa040" : z.type === "screamer" ? "#b48ad6" : z.type === "runner" ? (z.alert ? "#ff7a3d" : "#7a3a22") : z.alert ? "#b3372d" : "#6d2a25";
         ctx.beginPath(); ctx.arc(z.x, z.y, t.r, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#ff776d55"; ctx.lineWidth = 1; ctx.stroke();
         if(z.type === "armoured"){ ctx.fillStyle = "#d2bea0"; ctx.fillRect(z.x - 8, z.y - 2, 16, 4); }
+        if(z.type === "screamer" && z.scream > 0 && z.alert){ ctx.strokeStyle = "#d8b6ff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(z.x, z.y, t.r + 4 + z.scream * 4, 0, Math.PI * 2); ctx.stroke(); }
+        if(z.type === "runner"){ ctx.strokeStyle = "#ff7a3d88"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(z.x - 9, z.y + 4); ctx.lineTo(z.x - 3, z.y); ctx.stroke(); }
         if(m.focus && m.focus.z === z){ ctx.strokeStyle = "#61d4cf"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(z.x, z.y, t.r + 6, 0, Math.PI * 2); ctx.stroke(); }
       });
       m.units.forEach(u => {
@@ -797,7 +1032,7 @@
         ctx.fillStyle = "#07100f"; ctx.font = "bold 8px monospace"; ctx.textAlign = "center"; ctx.fillText(u.name[0], u.x, u.y + 3); ctx.textAlign = "left"; ctx.globalAlpha = 1;
       });
       m.shots.forEach(s => { ctx.globalAlpha = Math.min(1, s.t * 8) * (s.miss ? .35 : 1); ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke(); });
-      m.blasts.forEach(b => { ctx.globalAlpha = b.t; ctx.fillStyle = "#c9d14a55"; ctx.beginPath(); ctx.arc(b.x, b.y, 95 * (1.2 - b.t / 2), 0, Math.PI * 2); ctx.fill(); });
+      m.blasts.forEach(b => { ctx.globalAlpha = b.t; ctx.fillStyle = b.scream ? "#b48ad633" : "#c9d14a55"; ctx.beginPath(); ctx.arc(b.x, b.y, 95 * (1.2 - b.t / 2), 0, Math.PI * 2); ctx.fill(); });
       m.particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.t * 3); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); });
       ctx.globalAlpha = 1;
       ROOMS.forEach((r, i) => { if(m.seen[i]) return; ctx.fillStyle = "#070c0bdd"; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.fillStyle = "#3d4a45"; ctx.font = "bold 34px monospace"; ctx.textAlign = "center"; ctx.fillText("?", r.x + r.w / 2, r.y + r.h / 2 + 12); ctx.textAlign = "left"; });
@@ -808,7 +1043,7 @@
   function registerWebTools(){
     const mc = document.modelContext; if(!mc?.registerTool) return;
     Promise.resolve(mc.registerTool({name:"read_zombie_mission_status", title:"Read Mission Status", description:"Read the current prototype screen, campaign and live mission status.", inputSchema:{type:"object", properties:{}, additionalProperties:false}, annotations:{readOnlyHint:true, untrustedContentHint:false},
-      execute:() => ({screen:state.screen, day:camp.day, civiliansTrapped:camp.civilians, ammo:camp.ammo, meds:camp.meds,
+      execute:() => ({screen:state.screen, day:camp.day, civiliansTrapped:cur().civilians, building:B.title, ammo:camp.ammo, meds:camp.meds,
         mission:m ? {elapsed:Math.floor(m.elapsed), kills:m.kills, commandPoints:m.cp, noise:Math.round(m.noise), objective:m.objective, team:m.units.map(u => ({name:u.name, status:u.status, hp:Math.max(0, Math.round(u.hp))}))} : null})})).catch(() => {});
   }
   window.ZB = {get m(){ return m; }, get camp(){ return camp; }, state};
