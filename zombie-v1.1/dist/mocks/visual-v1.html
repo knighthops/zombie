@@ -64,9 +64,9 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Barlow,syst
   <div class="hud tl"><div class="t1">Convenience Shop</div><div class="t2">Hold the checkout</div></div>
   <div class="hud tr"><div class="t2">Visual mock v1</div></div>
   <div class="hud bl">
-    <div class="chip"><svg viewBox="-12 -12 24 24"><circle r="7.5" fill="none" stroke="#2fe39a" stroke-width="3.2"/></svg>Squad</div>
-    <div class="chip"><svg viewBox="-12 -12 24 24"><polygon id="starPts" fill="none" stroke="#ff3a2e" stroke-width="2.6" stroke-linejoin="round"/></svg>Infected</div>
-    <div class="chip"><svg viewBox="-12 -12 24 24"><polygon points="0,-9 7.8,-4.5 7.8,4.5 0,9 -7.8,4.5 -7.8,-4.5" fill="none" stroke="#b565ff" stroke-width="3"/></svg>Elite</div>
+    <div class="chip"><svg viewBox="-12 -12 24 24"><path d="M-4 -2 L-9 10 L9 10 L4 -2Z" fill="#2fe39a77"/><circle cy="-4" r="5" fill="#2fe39a"/></svg>Squad</div>
+    <div class="chip"><svg viewBox="-12 -12 24 24"><circle r="10" fill="#ff3a2e33"/><circle r="5.5" fill="#ff3a2e"/><polygon id="starPts" fill="none" stroke="none"/></svg>Infected</div>
+    <div class="chip"><svg viewBox="-12 -12 24 24"><circle r="11" fill="#b565ff44"/><circle r="6.5" fill="#b565ff"/></svg>Elite</div>
   </div>
 </section>
 
@@ -200,16 +200,13 @@ function sprite(tex, size, y, op){ const m=new T.SpriteMaterial({ map:tex, depth
 
 /* ---------- base markers ---------- */
 function makeBase(kind, r){
-  const g = new T.Group(); g.renderOrder = 2;
-  const add = (geo, mat, s, y) => { const m=new T.Mesh(geo, mat); m.scale.setScalar(s); m.position.y=y; m.renderOrder=2; g.add(m); return m; };
-  add(kind==='elite'?BG.hexDisc:BG.disc, B(0x000000,.62), r*1.28, .03);
-  if(kind==='human'){ add(BG.disc, B(C.human,.22), r*.74, .04); add(BG.ring, B(C.human,1), r, .05); }
-  if(kind==='civ'){ add(BG.disc, B(C.civ,.16), r*.74, .04); add(BG.dash, B(C.civ,1), r, .05); }
-  if(kind==='inf'){ add(BG.disc, B(C.inf,.2), r*.62, .04); add(BG.star, B(C.inf,1), r, .05); }
-  if(kind==='elite'){
-    const gl = new T.Mesh(G.plane, B(C.elite,.75,true)); gl.material.map=TX.glow; gl.scale.set(r*4.2,1,r*4.2); gl.position.y=.02; gl.renderOrder=1; g.add(gl); g.userData.glow=gl;
-    add(BG.hexDisc, B(C.elite,.2), r*.72, .04); add(BG.hex, B(C.elite,1), r, .05);
-  }
+  /* no platform: soft drop shadow, plus a faint colour haze for infected/elites */
+  const g = new T.Group();
+  const sh = new T.Mesh(G.plane, new T.MeshBasicMaterial({ map:TX.glow, color:0x000000, transparent:true, opacity:.8, depthWrite:false }));
+  sh.scale.set(r*2.2,1,r*2.2); sh.position.y=.025; sh.renderOrder=1; g.add(sh);
+  if(kind==='civ'){ const m=new T.Mesh(BG.dash, B(C.civ,1)); m.scale.setScalar(r); m.position.y=.05; m.renderOrder=2; g.add(m); }
+  if(kind==='inf'){ const gl=new T.Mesh(G.plane, B(C.inf,.22,true)); gl.material.map=TX.glow; gl.scale.set(r*2.6,1,r*2.6); gl.position.y=.03; gl.renderOrder=1; g.add(gl); }
+  if(kind==='elite'){ const gl=new T.Mesh(G.plane, B(C.elite,.6,true)); gl.material.map=TX.glow; gl.scale.set(r*3.4,1,r*3.4); gl.position.y=.03; gl.renderOrder=1; g.add(gl); g.userData.glow=gl; }
   return g;
 }
 
@@ -233,8 +230,8 @@ function rig(o){
 function eyes(r, col){ const m=P(0x220000, col); [-1,1].forEach(k=>part(G.box,m,r.hr*.28,r.hr*.18,r.hr*.1,k*r.hr*.38,r.hr*1.15,r.hr*.95,r.neck)); }
 
 /* palette */
-const H = { skin:P(0xb39c8a), fat:P(0x55665f), vest:P(0x252f2c), helm:P(0x3a4943), pants:P(0x343e3b), gun:P(0x2b3232), metal:P(0x5a6260) };
-const I = { skin:P(0x9a9483), cloth:P(0x5e3330, 0x1a0000), pants:P(0x2f2b2a), rag:P(0x4a2a28, 0x120000) };
+const H = { skin:P(0xb39c8a), fat:P(0x4f7d71, 0x04120d), vest:P(0x24342f), helm:P(0x3f675d, 0x04120d), pants:P(0x343e3b), gun:P(0x2b3232), metal:P(0x5a6260) };
+const I = { skin:P(0xa8a290), cloth:P(0x9a2c23, 0x3a0603), pants:P(0x2f2b2a), rag:P(0x4a2a28, 0x120000) };
 const E = { skin:P(0x6f5f7d, 0x1a0630), cloth:P(0x4a3a55, 0x14062a), plate:P(0x5d5b68), dark:P(0x262230), glowM:P(0x8a3fd0, 0x7a2fd0) };
 
 /* ---------- unit factory ---------- */
@@ -242,17 +239,21 @@ function makeUnit(type){
   const U = { type, fx:[], gait:'idle', ph:R(0,6.28), lean:0 };
   let r, base, k;
   const soldier = (o) => {
-    r = rig(Object.assign({ skin:H.skin, cloth:H.fat, pants:H.pants }, o));
+    r = rig(Object.assign({ skin:H.skin, cloth:H.fat, pants:H.pants, armLen:1.2 }, o));
     if(o.helmet!==false) part(G.ico1, o.helmM||H.helm, r.hr*1.22, r.hr*.86, r.hr*1.25, 0, r.hr*1.38, -.01, r.neck);
     if(o.vest!==false) part(G.box, o.vestM||H.vest, .7*r.s*(o.w||1), .4*r.s, .46*r.s, 0, r.th*.58, 0, r.torso);
     return r;
   };
+  const reach = (arm, x, y, z) => { const d = new T.Vector3(x,y,z).sub(arm.position); const L = d.length(); arm.quaternion.setFromUnitVectors(new T.Vector3(0,-1,0), d.normalize()); arm.scale.y = Math.min(1.4, Math.max(.8, L/(r.al+.06))); };
   const longGun = (len, thick, pump) => {
-    const g = new T.Group(); g.position.set(.12*r.s, r.th*.72, .2*r.s); r.torso.add(g);
-    part(G.box, H.gun, .09*thick, .11*thick, len, 0, 0, len*.45, g);
-    part(G.box, H.gun, .08, .2, .12, 0, -.12, len*.12, g);
-    if(pump) part(G.box, H.metal, .13, .13, .22, 0, -.02, len*.62, g);
-    r.arms[1].rotation.set(-1.25, 0, .15); r.arms[0].rotation.set(-1.45, 0, -.55);
+    const gy = r.th*.5, gx = .1*r.s, gz = .16;
+    const g = new T.Group(); g.position.set(gx, gy, gz); g.rotation.x = .08; r.torso.add(g);
+    part(G.box, H.gun, .09*thick, .11*thick, len, 0, 0, len*.5, g);
+    part(G.box, H.gun, .11, .15, .26, 0, -.03, -.02, g);
+    part(G.box, H.gun, .07, .2, .09, 0, -.13, len*.28, g);
+    if(pump) part(G.box, H.metal, .14, .14, .24, 0, -.03, len*.62, g);
+    reach(r.arms[1], gx+.02, gy-.07, gz+len*.28);
+    reach(r.arms[0], gx-.03, gy-.06, gz+len*.6);
     return g;
   };
   switch(type){
@@ -323,7 +324,7 @@ function makeUnit(type){
       r.arms[0].rotation.set(1.0, 0, -.25); r.arms[1].rotation.set(.8, 0, .25);
       eyes(r, 0xff2a1a); U.gait='run';
       base = makeBase('inf', .95); k='inf';
-      { const tr = new T.Group(); [-.35,0,.35].forEach((x,i)=>{ const m=new T.Mesh(G.box, B(C.inf,.5,true)); m.scale.set(.07,.07,1.6-i%2*.5); m.position.set(x,.35+i*.18,-1.3); tr.add(m); }); U.trail = tr; }
+      U.ghostTrail = true;
       break;
     case 'crawler':
       r = rig({ skin:I.skin, cloth:I.cloth, pants:I.pants, torsoH:.85 });
@@ -385,7 +386,12 @@ function makeUnit(type){
   if(U.extra) root.add(U.extra);
   if(U.pool) root.add(U.pool); if(U.pulse) root.add(U.pulse); if(U.pulse2) root.add(U.pulse2);
   if(U.waves) U.waves.forEach(w=>root.add(w));
-  if(U.trail) r.root.add(U.trail);
+  if(U.ghostTrail){ const tr = new T.Group();
+    [.26,.14,.06].forEach((op,i)=>{ const gh = r.root.clone(true); const gm = B(C.inf, op, true);
+      gh.traverse(o=>{ if(o.isMesh){ o.material = gm; o.castShadow = false; o.renderOrder = 1; } });
+      const lg = gh.children[0].children; if(lg[0]) lg[0].rotation.x = i%2 ? .8 : -.8; if(lg[1]) lg[1].rotation.x = i%2 ? -.8 : .8;
+      gh.position.set(0, 0, -.62*(i+1)); tr.add(gh); });
+    r.root.add(tr); U.trail = tr; }
   if(U.root2) root.add(U.root2);
   if(k==='human'){ const cm = new T.MeshBasicMaterial({ color:0x7dffd0, vertexColors:true, transparent:true, opacity:.85, depthWrite:false, blending:T.AdditiveBlending, side:T.DoubleSide }); const cone=new T.Mesh(BG.cone, cm); cone.position.y=.06; cone.renderOrder=1; r.root.add(cone); U.cone=cone; }
   U.root = root; U.figure = r.root;
@@ -440,36 +446,37 @@ function paintFloor(){
   const c=document.createElement('canvas'); c.width=W; c.height=Hh; const x=c.getContext('2d');
   x.setTransform(sx,0,0,sz,0,0);
   const rooms = [
-    { n:'Shop floor', x0:0,  z0:0,  x1:30,  z1:22, col:'#454846', tile:2 },
-    { n:'Checkout',   x0:30, z0:0,  x1:63,  z1:22, col:'#4d504e', tile:1.5 },
-    { n:'Stockroom',  x0:63, z0:0,  x1:104, z1:22, col:'#393c3a', tile:0 },
-    { n:'Aisles',     x0:0,  z0:22, x1:39,  z1:58, col:'#424543', tile:2 },
-    { n:'Office',     x0:39, z0:22, x1:67,  z1:58, col:'#323635', tile:3 },
-    { n:'Loading bay',x0:67, z0:22, x1:104, z1:58, col:'#373937', tile:0 }
+    { n:'Shop floor', x0:0,  z0:0,  x1:30,  z1:22, col:'#434644', tile:1 },
+    { n:'Checkout',   x0:30, z0:0,  x1:63,  z1:22, col:'#474a48', tile:1 },
+    { n:'Stockroom',  x0:63, z0:0,  x1:104, z1:22, col:'#3c3f3d', tile:0 },
+    { n:'Aisles',     x0:0,  z0:22, x1:39,  z1:58, col:'#414442', tile:1 },
+    { n:'Office',     x0:39, z0:22, x1:67,  z1:58, col:'#383c3a', tile:1 },
+    { n:'Loading bay',x0:67, z0:22, x1:104, z1:58, col:'#3a3c3a', tile:0 }
   ];
   rooms.forEach(rm=>{
     x.fillStyle=rm.col; x.fillRect(rm.x0,rm.z0,rm.x1-rm.x0,rm.z1-rm.z0);
-    if(rm.tile){ let i=0;
-      for(let a=rm.x0;a<rm.x1;a+=rm.tile){ let j=0; for(let b=rm.z0;b<rm.z1;b+=rm.tile){ if((i+j)%2){ x.fillStyle='rgba(255,255,255,.035)'; x.fillRect(a,b,rm.tile,rm.tile);} if(rnd()<.05){ x.fillStyle='rgba(0,0,0,.25)'; x.fillRect(a,b,rm.tile,rm.tile);} j++; } i++; }
-      x.strokeStyle='rgba(0,0,0,.22)'; x.lineWidth=.05; x.beginPath();
-      for(let a=rm.x0;a<=rm.x1;a+=rm.tile){ x.moveTo(a,rm.z0); x.lineTo(a,rm.z1); }
-      for(let b=rm.z0;b<=rm.z1;b+=rm.tile){ x.moveTo(rm.x0,b); x.lineTo(rm.x1,b); } x.stroke();
-    } else {
-      for(let k=0;k<60;k++){ x.fillStyle=`rgba(${rnd()<.5?'0,0,0':'255,255,255'},${R(.02,.06)})`; x.fillRect(R(rm.x0,rm.x1),R(rm.z0,rm.z1),R(1,6),R(1,6)); }
-      x.strokeStyle='rgba(0,0,0,.25)'; x.lineWidth=.06; x.beginPath(); for(let a=rm.x0+6;a<rm.x1;a+=6){ x.moveTo(a,rm.z0); x.lineTo(a,rm.z1);} x.stroke();
-    }
+    x.save(); x.beginPath(); x.rect(rm.x0,rm.z0,rm.x1-rm.x0,rm.z1-rm.z0); x.clip();
+    /* large soft tonal drift */
+    for(let k=0;k<14;k++){ const px=R(rm.x0,rm.x1), pz=R(rm.z0,rm.z1), rr=R(5,14); const g=x.createRadialGradient(px,pz,0,px,pz,rr); const lt=rnd()<.45; g.addColorStop(0,lt?`rgba(200,204,198,${R(.025,.05)})`:`rgba(8,10,9,${R(.05,.1)})`); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; x.fillRect(px-rr,pz-rr,rr*2,rr*2); }
+    /* replaced / worn patches, very low contrast */
+    for(let k=0;k<4;k++){ x.save(); x.translate(R(rm.x0+2,rm.x1-2),R(rm.z0+2,rm.z1-2)); x.rotate(R(-.05,.05)); x.fillStyle=`rgba(${rnd()<.5?'0,0,0':'210,212,206'},${R(.025,.045)})`; x.fillRect(0,0,R(3,8),R(2,6)); x.restore(); }
+    /* faint slab seams for concrete only */
+    if(!rm.tile){ x.strokeStyle='rgba(0,0,0,.09)'; x.lineWidth=.05; x.beginPath(); for(let a=rm.x0+8;a<rm.x1;a+=8){ x.moveTo(a,rm.z0); x.lineTo(a+R(-.3,.3),rm.z1);} x.stroke(); }
+    x.restore();
   });
   /* loading bay hazard edge */
-  x.save(); x.beginPath(); x.rect(70,29.2,30,1.1); x.clip(); x.fillStyle='rgba(150,142,98,.55)'; for(let a=66;a<104;a+=1.2){ x.beginPath(); x.moveTo(a,29.2); x.lineTo(a+.6,29.2); x.lineTo(a+1.7,30.3); x.lineTo(a+1.1,30.3); x.fill(); } x.restore();
-  /* grime */
-  for(let k=0;k<520;k++){ const px=R(0,MW), pz=R(0,MD), rr=R(.6,5); const g=x.createRadialGradient(px,pz,0,px,pz,rr); g.addColorStop(0,`rgba(10,12,11,${R(.12,.38)})`); g.addColorStop(1,'rgba(10,12,11,0)'); x.fillStyle=g; x.fillRect(px-rr,pz-rr,rr*2,rr*2); }
+  x.save(); x.beginPath(); x.rect(70,29.2,30,1.1); x.clip(); x.fillStyle='rgba(150,142,98,.35)'; for(let a=66;a<104;a+=1.2){ x.beginPath(); x.moveTo(a,29.2); x.lineTo(a+.6,29.2); x.lineTo(a+1.7,30.3); x.lineTo(a+1.1,30.3); x.fill(); } x.restore();
+  /* soft stains and grime */
+  for(let k=0;k<70;k++){ const px=R(0,MW), pz=R(0,MD), rr=R(1.2,4.5); const g=x.createRadialGradient(px,pz,0,px,pz,rr); g.addColorStop(0,`rgba(14,15,13,${R(.08,.18)})`); g.addColorStop(.6,`rgba(14,15,13,${R(.03,.07)})`); g.addColorStop(1,'rgba(14,15,13,0)'); x.fillStyle=g; x.beginPath(); x.ellipse(px,pz,rr,rr*R(.5,1),R(0,3),0,7); x.fill(); }
+  /* scuff paths along the main routes */
+  x.strokeStyle='rgba(10,11,10,.06)'; x.lineCap='round'; x.lineWidth=3.2; x.beginPath(); x.moveTo(2,42); x.lineTo(22,40); x.lineTo(38,39); x.moveTo(15,24); x.lineTo(15,20); x.lineTo(28,11); x.lineTo(46,10); x.lineTo(54,24); x.lineTo(54,40); x.lineTo(68,39); x.lineTo(98,42); x.stroke();
   /* wall-edge dirt */
-  x.strokeStyle='rgba(0,0,0,.35)'; x.lineWidth=1.4; x.strokeRect(.7,.7,MW-1.4,MD-1.4);
-  /* cracks */
-  x.strokeStyle='rgba(15,16,16,.6)'; x.lineWidth=.07;
-  for(let k=0;k<55;k++){ let px=R(0,MW), pz=R(0,MD), a=R(0,6.3); x.beginPath(); x.moveTo(px,pz); const n=R(4,12)|0; for(let i=0;i<n;i++){ a+=R(-.8,.8); px+=Math.cos(a)*R(.4,1.3); pz+=Math.sin(a)*R(.4,1.3); x.lineTo(px,pz);} x.stroke(); }
-  /* papers, packets */
-  for(let k=0;k<160;k++){ x.save(); x.translate(R(1,MW-1),R(1,MD-1)); x.rotate(R(0,6.3)); x.fillStyle=`rgba(${rnd()<.7?'205,205,196':'120,124,120'},${R(.25,.55)})`; x.fillRect(-.3,-.2,R(.35,.8),R(.25,.55)); x.restore(); }
+  x.strokeStyle='rgba(0,0,0,.22)'; x.lineWidth=1.6; x.strokeRect(.7,.7,MW-1.4,MD-1.4);
+  /* a few cracks */
+  x.strokeStyle='rgba(15,16,16,.28)'; x.lineWidth=.06;
+  for(let k=0;k<18;k++){ let px=R(0,MW), pz=R(0,MD), a=R(0,6.3); x.beginPath(); x.moveTo(px,pz); const n=R(4,10)|0; for(let i=0;i<n;i++){ a+=R(-.7,.7); px+=Math.cos(a)*R(.4,1.2); pz+=Math.sin(a)*R(.4,1.2); x.lineTo(px,pz);} x.stroke(); }
+  /* scattered papers, faint */
+  for(let k=0;k<50;k++){ x.save(); x.translate(R(1,MW-1),R(1,MD-1)); x.rotate(R(0,6.3)); x.fillStyle=`rgba(190,190,182,${R(.1,.22)})`; x.fillRect(-.3,-.2,R(.35,.7),R(.25,.5)); x.restore(); }
   /* blood */
   const blood=(px,pz,rr,n)=>{ for(let i=0;i<n;i++){ const a=R(0,6.3), d=i?R(0,rr*1.4):0, s=i?R(.1,rr*.45):rr; x.fillStyle=`rgba(${R(70,105)|0},${R(10,18)|0},${R(10,16)|0},${R(.7,.92)})`; x.beginPath(); x.ellipse(px+Math.cos(a)*d,pz+Math.sin(a)*d,s,s*R(.6,1),R(0,3),0,7); x.fill(); } };
   const smear=(pts,w)=>{ x.strokeStyle='rgba(80,14,12,.75)'; x.lineCap='round'; x.lineWidth=w; x.beginPath(); pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1])); x.stroke(); };
@@ -558,7 +565,7 @@ function buildField(){
 const U_red = [];
 
 /* units on the field */
-const units = []; const US = 1.15;
+const units = []; const US = 1.3;
 function place(type, x, z, face, ctl){ const U = makeUnit(type); U.root.position.set(x,0,z); U.root.scale.setScalar(US); U.figure.rotation.y = face; U.face = face; U.ax=x; U.az=z; U.ctl = ctl||'still'; if(U.root2) U.root2.userData.y0 = U.root2.position.y; fs.add(U.root); units.push(U); return U; }
 const faceTo = (x0,z0,x1,z1) => Math.atan2(x1-x0, z1-z0);
 let joel, squadW=[], squadS=[], crowdW=[], crowdS=[], runner, bloater;
@@ -642,31 +649,31 @@ function fitField(){
    ========================================================= */
 const CARDS = [
   { g:'Humans', c:HEX.human, items:[
-    { t:'joel', n:'Joel', r:'Leader · can\'t die', k:'ring', kt:'Teal ring · gold star', f:1.55 },
-    { t:'rifle', n:'Rifle', r:'Steady fire · +15% hit', k:'ring', kt:'Teal ring · cone', f:1.55 },
-    { t:'breacher', n:'Breacher', r:'Shotgun · close, loud', k:'ring', kt:'Teal ring · bulk', f:1.6 },
-    { t:'scout', n:'Scout', r:'Fast · quiet', k:'ring', kt:'Teal ring · hood', f:1.55 },
-    { t:'medic', n:'Medic', r:'Heals · better medkits', k:'ring', kt:'Teal ring · white pack', f:1.55 },
+    { t:'joel', n:'Joel', r:'Leader · can\'t die', k:'ring', kt:'Teal cone · gold star', f:1.55 },
+    { t:'rifle', n:'Rifle', r:'Steady fire · +15% hit', k:'ring', kt:'Teal cone · rifle', f:1.55 },
+    { t:'breacher', n:'Breacher', r:'Shotgun · close, loud', k:'ring', kt:'Teal cone · bulk', f:1.6 },
+    { t:'scout', n:'Scout', r:'Fast · quiet', k:'ring', kt:'Teal cone · hood', f:1.55 },
+    { t:'medic', n:'Medic', r:'Heals · better medkits', k:'ring', kt:'Teal cone · white pack', f:1.55 },
     { t:'civ', n:'Civilian', r:'Escort · unarmed', k:'dash', kt:'Pale dashed ring', f:1.45 },
     { t:'downed', n:'Downed', r:'Bleeding out · needs medic', k:'down', kt:'Red pulse ring', f:2.2, y:.3 } ]},
   { g:'Infected', c:HEX.inf, items:[
-    { t:'shambler', n:'Shambler', r:'Slow · comes in packs', k:'star', kt:'Red spiked ring', f:1.5 },
-    { t:'runner', n:'Runner', r:'Sprints · fragile', k:'star', kt:'Red spikes · streaks', f:1.55 },
-    { t:'crawler', n:'Crawler', r:'Lies still · ambush', k:'star', kt:'Red spikes · low', f:1.35, y:.35 },
-    { t:'screamer', n:'Screamer', r:'Wakes rooms · +noise', k:'star', kt:'Red spikes · waves', f:2.0 } ]},
+    { t:'shambler', n:'Shambler', r:'Slow · comes in packs', k:'star', kt:'Red body · haze', f:1.5 },
+    { t:'runner', n:'Runner', r:'Sprints · fragile', k:'star', kt:'Red body · afterimage', f:1.55 },
+    { t:'crawler', n:'Crawler', r:'Lies still · ambush', k:'star', kt:'Red body · low', f:1.35, y:.35 },
+    { t:'screamer', n:'Screamer', r:'Wakes rooms · +noise', k:'star', kt:'Red body · waves', f:2.0 } ]},
   { g:'Elite infected', c:HEX.elite, items:[
-    { t:'armoured', n:'Armoured', r:'Soaks fire · slow', k:'hex', kt:'Purple hex · shield', f:1.75 },
-    { t:'bloater', n:'Bloater', r:'Bursts on the line', k:'hex', kt:'Purple hex · burst', f:1.9 },
-    { t:'brute', n:'Brute', r:'Smashes sealed doors', k:'hex', kt:'Purple hex · door', f:2.25, p:1 },
-    { t:'stalker', n:'Stalker', r:'Drags off a lone escort', k:'hex', kt:'Purple hex · claw', f:2.0, p:1 } ]}
+    { t:'armoured', n:'Armoured', r:'Soaks fire · slow', k:'hex', kt:'Purple glow · shield', f:1.75 },
+    { t:'bloater', n:'Bloater', r:'Bursts on the line', k:'hex', kt:'Purple glow · burst', f:1.9 },
+    { t:'brute', n:'Brute', r:'Smashes sealed doors', k:'hex', kt:'Purple glow · door', f:2.25, p:1 },
+    { t:'stalker', n:'Stalker', r:'Drags off a lone escort', k:'hex', kt:'Purple glow · claw', f:2.0, p:1 } ]}
 ];
 function keySvg(k){
   const s='<svg viewBox="-12 -12 24 24">';
-  if(k==='ring') return s+'<path d="M0 0 L-5 10 L5 10Z" fill="#2fe39a55"/><circle r="7" fill="#0008" stroke="#2fe39a" stroke-width="3"/></svg>';
+  if(k==='ring') return s+'<path d="M-4 -2 L-9 10 L9 10 L4 -2Z" fill="#2fe39a77"/><circle cy="-4" r="5" fill="#2fe39a"/></svg>';
   if(k==='dash') return s+'<circle r="7" fill="none" stroke="#a8dcff" stroke-width="3" stroke-dasharray="4.2 2.6"/></svg>';
   if(k==='down') return s+'<circle r="10" fill="#ff2b2b33" stroke="#ff2b2b" stroke-width="1.6"/><circle r="5.5" fill="none" stroke="#2fe39a" stroke-width="2.6"/></svg>';
-  if(k==='star') return s+'<polygon points="'+starPts(7,10,6.8)+'" fill="none" stroke="#ff3a2e" stroke-width="2.6" stroke-linejoin="round"/></svg>';
-  return s+'<polygon points="0,-9.5 8.2,-4.75 8.2,4.75 0,9.5 -8.2,4.75 -8.2,-4.75" fill="#b565ff22" stroke="#b565ff" stroke-width="3"/></svg>';
+  if(k==='star') return s+'<circle r="10" fill="#ff3a2e33"/><circle r="5.5" fill="#ff3a2e"/></svg>';
+  return s+'<circle r="11" fill="#b565ff44"/><circle r="6.5" fill="#b565ff"/></svg>';
 }
 const groupsEl = document.getElementById('groups');
 const galItems = [];
@@ -709,7 +716,7 @@ function renderGal(t){
     if(rc.bottom<0 || rc.top>Hh || rc.right<0 || rc.left>W) return;
     const w=rc.width, h=rc.height, x=rc.left, y=Hh-rc.bottom;
     gr.setViewport(x,y,w,h); gr.setScissor(x,y,w,h);
-    const f=g.it.f*1.32, a=w/h, cy=(g.it.y!=null?g.it.y:f*.36);
+    const f=g.it.f*1.12, a=w/h, cy=(g.it.y!=null?g.it.y:f*.36);
     Object.assign(gcam,{ left:-f*a, right:f*a, top:f, bottom:-f }); gcam.updateProjectionMatrix();
     gcam.position.set(0, cy + Math.sin(el)*30, Math.cos(el)*30); gcam.lookAt(0, cy, 0);
     const U=g.U; U.root.visible=true;
