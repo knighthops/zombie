@@ -83,6 +83,8 @@ One building with honest stakes, replayable across a few days.
 
 **Park:** the full zone map (#10), the Monte Carlo forecast (#9), traverse events.
 
+**Built in slice 1 (2026-11-27):** Items 1–5 are in `zombie-v1.1/dist`. The bug pass is done. Noise sets off waves at 30/60/90 (and again at 100), and ammo and meds are carried. Crises fire on real events (a down, a bloater closing, the barricade breaking, who to take out). They queue, run on real-second timers and slow the sim to 0.25x. CP regens 1 per 12s while Joel is up and not under attack. Roster, base stock, day, civilians and infected count persist in localStorage, with a New campaign button. Stances, Fire at Will, Advance/Seal/Focus/Medkit and extraction run on the 6-room graph. Additions: each civilian needs an escort who can't shoot, so the building takes several days. A broken barricade costs one civilian every 10s. Noise left behind grows the infected count overnight. All the listed cuts are made. Observe mode was cut, not kept. The forecast shows intel only.
+
 ## 6. Open questions for the user
 
 1. **Control depth:** is the player a commander (stances, room orders and crises only, as designed here) or should they also select and move individual troopers? This doc assumes commander.

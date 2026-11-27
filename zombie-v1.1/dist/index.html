@@ -42,8 +42,8 @@
     <section class="screen ops-screen" id="ops-screen" aria-labelledby="ops-title">
       <header class="topbar">
         <div class="brand"><span class="pulse"></span><strong>ZOMBIE</strong><small>v1.1</small></div>
-        <nav aria-label="Operations sections"><button class="nav-active">MAP</button><button id="roster-jump">ROSTER <span>6</span></button><button>ARCHIVE</button></nav>
-        <div class="clock"><span id="day-state">DAYLIGHT</span><strong id="ops-time">07:10</strong></div>
+        <nav aria-label="Operations sections"><button class="nav-active">MAP</button><button id="roster-jump">ROSTER <span id="roster-count">6</span></button><button>ARCHIVE</button></nav>
+        <div class="clock"><span id="day-state">DAY 12</span><strong id="ops-time">07:10</strong></div>
       </header>
       <div class="ops-layout">
         <aside class="mission-panel">
@@ -51,10 +51,12 @@
           <h2 id="ops-title">Russa Bakin</h2>
           <p class="muted">Secure a foothold. Locate the missing. Keep the roads open.</p>
           <div class="chapter-progress"><span style="width:18%"></span></div>
-          <div class="objective"><span>01</span><div><strong>Desperate Measures</strong><small>Rescue the trapped civilians</small></div></div>
+          <div class="objective"><span>01</span><div><strong>Desperate Measures</strong><small id="obj-sub">Rescue the trapped civilians</small></div></div>
           <div class="objective locked"><span>02</span><div><strong>Cold Storage</strong><small>Unknown location</small></div></div>
           <div class="objective locked"><span>03</span><div><strong>The Long Night</strong><small>Locked</small></div></div>
-          <div class="hub-card"><span class="hub-icon">⌂</span><div><small>OPERATIONS HUB</small><strong>6 ready · 2 beds · 14 fuel</strong></div></div>
+          <div class="hub-card"><span class="hub-icon">⌂</span><div><small>OPERATIONS HUB</small><strong id="hub-line">6 ready</strong></div></div>
+          <p class="ops-report" id="ops-report" hidden></p>
+          <button class="secondary full new-campaign" id="new-campaign">New campaign</button>
         </aside>
 
         <div class="map-wrap" aria-label="Operations map with mission routes">
@@ -80,14 +82,14 @@
             <div><small>THREAT</small><strong id="threat-value">Unknown</strong></div>
             <div><small>STRUCTURE</small><strong id="structure-value">Partial</strong></div>
             <div><small>LOOT</small><strong id="loot-value">Possible</strong></div>
-            <div><small>TIME WINDOW</small><strong id="window-value">~45 min</strong></div>
+            <div><small>BARRICADE</small><strong id="window-value">~100%</strong></div>
           </div>
           <button class="secondary full" id="recon-btn"><span>◉</span> Send recon team <small>20 min · 1 supply</small></button>
           <div class="choice-block">
             <span class="choice-label">APPROACH</span>
             <div class="segmented" id="route-choice">
-              <button data-route="foot"><strong>ON FOOT</strong><small>25 min · quiet</small></button>
-              <button class="selected" data-route="vehicle"><strong>VEHICLE</strong><small>8 min · noisy</small></button>
+              <button data-route="foot"><strong>ON FOOT</strong><small>Silent · barricade −10</small></button>
+              <button class="selected" data-route="vehicle"><strong>VEHICLE</strong><small>Fast · +25 noise on arrival</small></button>
             </div>
           </div>
           <button class="primary full" id="prepare-btn">Prepare deployment</button>
@@ -99,25 +101,25 @@
       <header class="topbar"><button class="back-btn" id="back-map">← MAP</button><div class="brand"><span class="pulse"></span><strong>DEPLOYMENT</strong><small>01</small></div><div class="clock"><span>DEPARTURE</span><strong id="depart-time">07:18</strong></div></header>
       <div class="prep-layout">
         <section class="roster-panel">
-          <div class="section-title"><div><p class="eyebrow">STRIKE TEAM</p><h2 id="prep-title">Choose who goes</h2></div><span class="power">POWER <strong id="power-score">72</strong></span></div>
+          <div class="section-title"><div><p class="eyebrow">STRIKE TEAM</p><h2 id="prep-title">Choose who goes</h2></div></div>
           <div class="squad-list" id="squad-list"></div>
         </section>
         <aside class="doctrine-panel">
           <p class="eyebrow">MISSION DOCTRINE</p>
           <h2>Standing orders</h2>
-          <label>ENGAGEMENT</label>
+          <label>STARTING STANCE · CHANGE IT ANY TIME IN THE FIELD</label>
           <div class="segmented vertical" id="doctrine-choice">
-            <button data-doctrine="defensive"><strong>DEFENSIVE</strong><small>Hold formation, conserve ammo</small></button>
-            <button class="selected" data-doctrine="controlled"><strong>CONTROLLED</strong><small>Balanced movement and fire</small></button>
-            <button data-doctrine="aggressive"><strong>AGGRESSIVE</strong><small>Advance quickly, high ammo use</small></button>
+            <button data-doctrine="defensive"><strong>DEFENSIVE</strong><small>Hold the room · +15% hit, slower fire</small></button>
+            <button class="selected" data-doctrine="controlled"><strong>CONTROLLED</strong><small>Advance when the room is clear</small></button>
+            <button data-doctrine="aggressive"><strong>AGGRESSIVE</strong><small>Push on regardless · fast, loud, −15% hit</small></button>
           </div>
-          <label>MISSION MODE</label>
-          <div class="mode-cards" id="mode-choice">
-            <button data-mode="observe"><span>◉</span><strong>OBSERVE</strong><small>Watch the squad execute your plan.</small></button>
-            <button class="selected" data-mode="command"><span>⌁</span><strong>COMMAND</strong><small>Issue orders and answer crises.</small></button>
-            <button data-mode="resolve"><span>▤</span><strong>RESOLVE</strong><small>Calculate the outcome instantly.</small></button>
+          <label>LOADOUT FROM BASE STOCK</label>
+          <div class="loadout" id="loadout">
+            <div class="load-row"><span>AMMO</span><button data-load="ammo" data-dir="-1" aria-label="Less ammo">−</button><strong id="load-ammo">150</strong><button data-load="ammo" data-dir="1" aria-label="More ammo">+</button><small id="load-ammo-base"></small></div>
+            <div class="load-row"><span>MEDS</span><button data-load="meds" data-dir="-1" aria-label="Fewer meds">−</button><strong id="load-meds">2</strong><button data-load="meds" data-dir="1" aria-label="More meds">+</button><small id="load-meds-base"></small></div>
           </div>
-          <div class="forecast"><div><span>SUCCESS</span><strong id="success-forecast">LIKELY</strong></div><div><span>EXPECTED LOSSES</span><strong id="loss-forecast">0–2</strong></div><div><span>INTEL CONFIDENCE</span><strong id="intel-forecast">LOW</strong></div></div>
+          <label>INTEL</label>
+          <div class="forecast"><div><span>THREAT</span><strong id="f-threat">?</strong></div><div><span>BLOATER</span><strong id="f-bloater">Unknown</strong></div><div><span>BARRICADE ON ARRIVAL</span><strong id="f-barricade">?</strong></div><div><span>ARRIVAL NOISE</span><strong id="f-noise">?</strong></div><div><span>SQUAD</span><strong id="f-squad">?</strong></div></div>
           <button class="primary full danger" id="deploy-btn">Deploy team</button>
         </aside>
       </div>
@@ -135,29 +137,34 @@
           <div class="scanlines"></div>
           <div class="combat-hud">
             <div class="squad-status" id="squad-status"></div>
-            <div class="command-bar" id="command-bar">
-              <button data-command="rally"><span>⌖</span>RALLY</button>
-              <button data-command="hold"><span>▣</span>HOLD</button>
-              <button data-command="focus"><span>◎</span>FOCUS</button>
-              <button data-command="gear"><span>✚</span>MEDKIT</button>
-              <button data-command="retreat" class="retreat"><span>↙</span>RETREAT</button>
+            <div class="hud-bottom">
+              <div class="stance-bar" id="stance-bar"><button data-stance="defensive">DEFENSIVE</button><button data-stance="controlled">CONTROLLED</button><button data-stance="aggressive">AGGRESSIVE</button><button data-faw="1" class="faw">FIRE AT WILL: ON</button></div>
+              <div class="command-bar" id="command-bar">
+                <button data-command="advance"><span>⌖</span>ADVANCE<small>1 · pick room</small></button>
+                <button data-command="seal"><span>▣</span>SEAL DOOR<small>1 · 20s</small></button>
+                <button data-command="focus"><span>◎</span>FOCUS<small>1 · 8s</small></button>
+                <button data-command="gear"><span>✚</span>MEDKIT<small>1 + med</small></button>
+                <button data-command="retreat" class="retreat"><span>↙</span>RETREAT<small>end now</small></button>
+              </div>
             </div>
           </div>
         </div>
         <aside class="battle-log-panel">
           <div class="log-head"><div><span class="live-dot"></span><strong>BATTLE LOG</strong></div><small id="mission-clock">00:00</small></div>
-          <div class="log-filters"><button class="selected" data-filter="all">ALL</button><button data-filter="critical">CRITICAL</button><button data-filter="kills">KILLS</button></div>
+          
           <div class="log-stream" id="log-stream" aria-live="polite"></div>
-          <div class="bandwidth"><div><span>COMMAND</span><strong id="command-points">● ● ●</strong></div><div class="bandwidth-line"><span id="bandwidth-fill"></span></div></div>
+          <div class="bandwidth"><div><span>COMMAND</span><strong id="command-points">● ● ●</strong></div><div class="bandwidth-line"><span id="bandwidth-fill"></span></div><div class="sub"><span id="cp-regen-label">REGEN</span></div>
+            <div class="noise-row"><span>NOISE</span><strong id="noise-value">0</strong></div><div class="noise-line"><span id="noise-fill"></span><i style="left:30%"></i><i style="left:60%"></i><i style="left:90%"></i></div>
+            <div class="stock-row"><span>AMMO <strong id="ammo-value">0</strong></span><span>MEDS <strong id="meds-value">0</strong></span></div></div>
         </aside>
       </div>
       <div class="crisis-overlay" id="crisis-overlay" role="dialog" aria-modal="true" aria-labelledby="crisis-title">
-        <div class="crisis-card"><p class="eyebrow alert">COMMAND WINDOW</p><h2 id="crisis-title">A trooper is down</h2><p id="crisis-copy">The team is exposed. You have seconds to decide.</p><div class="crisis-timer"><span id="crisis-timer-fill"></span></div><div class="crisis-actions"><button data-crisis="rescue"><strong>Emergency rescue</strong><small>2 command · safest</small></button><button data-crisis="cover"><strong>Cover and stabilize</strong><small>1 command · risky</small></button><button data-crisis="abandon" class="danger-choice"><strong>Leave them</strong><small>Preserve the team</small></button></div></div>
+        <div class="crisis-card"><p class="eyebrow alert">COMMAND WINDOW</p><h2 id="crisis-title">A trooper is down</h2><p id="crisis-copy">The team is exposed. You have seconds to decide.</p><div class="crisis-timer"><span id="crisis-timer-fill"></span></div><div class="crisis-actions" id="crisis-actions"></div><p class="crisis-queue" id="crisis-queue"></p></div>
       </div>
     </section>
 
     <section class="screen result-screen" id="result-screen" aria-labelledby="result-title">
-      <div class="result-card"><p class="eyebrow">AFTER-ACTION REPORT · MISSION 01</p><h1 id="result-title">Team returning</h1><p class="result-summary" id="result-summary"></p><div class="result-grid" id="result-grid"></div><div class="casualty-list" id="casualty-list"></div><button class="primary" id="return-ops">Return to operations</button><button class="secondary" id="retry-mission">Run mission again</button></div>
+      <div class="result-card"><p class="eyebrow">AFTER-ACTION REPORT · MISSION 01</p><h1 id="result-title">Team returning</h1><p class="result-summary" id="result-summary"></p><div class="result-grid" id="result-grid"></div><div class="casualty-list" id="casualty-list"></div><p class="result-base" id="result-base"></p><button class="primary" id="return-ops">Return to operations</button></div>
     </section>
   </main>
   <script src="./app.js"></script>
