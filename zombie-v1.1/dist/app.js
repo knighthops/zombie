@@ -147,6 +147,7 @@
     $("#brief-num").textContent = `MISSION 0${camp.bIdx + 1}`;
     $("#brief-title").textContent = B.mission; $("#brief-place").textContent = B.place; $("#brief-copy").textContent = B.brief;
     $("#ops-report").textContent = camp.report || ""; $("#ops-report").hidden = !camp.report;
+    $("#brief-report").textContent = camp.report || ""; $("#brief-report").hidden = !camp.report; // phone copy, at the top of the brief
     $("#threat-value").textContent = threatText();
     $("#structure-value").textContent = state.recon ? "Mapped" : "Partial";
     $("#loot-value").textContent = state.recon ? "Medical cache" : "Possible";
@@ -223,6 +224,7 @@
   // ---------- end of the campaign: chapter done, or the squad is gone ----------
   function showEnd(){
     state.endMode = true;
+    $(".result-card").className = `result-card ending-${camp.ended}`; // tone only: wiped reads red, chapter end amber
     const all = camp.b.reduce((a, s) => ({r:a.r + s.rescued, l:a.l + s.lost}), {r:0, l:0});
     const dead = team().filter(p => rec(p.id).status === "dead");
     $("#result-eyebrow").textContent = camp.ended === "chapter" ? "CHAPTER 1 · CLOSED" : "CAMPAIGN OVER";
@@ -361,7 +363,7 @@
   // ---------- sim ----------
   function update(step){
     m.elapsed += step;
-    DOORS.forEach(d => { if(d.cd > 0) d.cd -= step; if(d.sealed > 0){ d.sealed -= step; if(d.sealed <= 0){ d.sealed = 0; addLog(`The ${doorName(d)} barricade gave way.`); } } });
+    DOORS.forEach(d => { if(d.cd > 0) d.cd -= step; if(d.sealed > 0){ d.sealed -= step; if(d.sealed <= 0){ d.sealed = 0; addLog(`The ${doorName(d)} barricade gave way.`); jolt("door"); } } });
     if(m.focus && (!m.focus.z.alive || (m.focus.t -= step) <= 0)) m.focus = null;
     m.units.forEach(u => { if(u.status === "DEAD") return; m.seen[u.room] = true; ADJ[u.room].forEach(n => { m.seen[n.r] = true; }); });
     updateUnits(step); updateZombies(step); updateCivs(step); separate();
@@ -463,7 +465,7 @@
     }
   }
   function explode(z){
-    z.alive = false; m.noise += 12; m.blasts.push({x:z.x, y:z.y, t:.6});
+    z.alive = false; m.noise += 12; m.blasts.push({x:z.x, y:z.y, t:.6}); jolt("blast");
     const hurt = [];
     m.units.forEach(u => {
       const d = dist(u, z); if(d > 95) return;
@@ -477,7 +479,7 @@
   function downUnit(u){
     if(u.status !== "ACTIVE") return;
     u.status = "DOWN"; u.hp = 0; u.bleed = 20;
-    addLog(`${u.name} is down in the ${roomName(u.room)}.`, "critical");
+    addLog(`${u.name} is down in the ${roomName(u.room)}.`, "critical"); jolt("down");
     if(u.id === "joel") addLog("Command is cut. No regen until Joel is back up.", "critical");
     pushCrisis({kind:"down", unit:u});
   }
@@ -555,7 +557,7 @@
   }
   function scream(z){
     m.noise += 10; wakeRoom(z.room); ADJ[z.room].forEach(n => wakeRoom(n.r));
-    m.blasts.push({x:z.x, y:z.y, t:.6, scream:true});
+    m.blasts.push({x:z.x, y:z.y, t:.6, scream:true}); jolt("wave");
     addLog(`The screamer in the ${roomName(z.room)} shrieked. +10 noise, and the rooms around it are awake.`, "critical");
   }
   function spawnWave(size, at){
@@ -566,7 +568,7 @@
       const r = ROOMS[edge.room];
       addZombie(size >= 6 && i === 0 ? "armoured" : i >= size - runners ? "runner" : "shambler", edge.room, clamp(edge.x + (Math.random() - .5) * 40, r.x + 12, r.x + r.w - 12), clamp(edge.y + (Math.random() - .5) * 40, r.y + 12, r.y + r.h - 12), true);
     }
-    wakeRoom(edge.room);
+    wakeRoom(edge.room); jolt("wave");
     addLog(`Noise ${at}: ${size} infected${runners ? (runners === 1 ? ", one of them a runner," : `, ${runners} of them runners,`) : ""} pushing in through the ${edge.label}.`, "critical");
   }
   function barricadeBroke(){
@@ -732,6 +734,7 @@
     const v = crisisView(c);
     $("#crisis-title").textContent = v.title; $("#crisis-copy").textContent = v.copy;
     $("#crisis-timer-fill").style.width = `${Math.max(0, c.t / c.max) * 100}%`;
+    $(".crisis-card").classList.toggle("urgent", c.t <= 4);
     const d = defaultOption(v), dl = d ? d.label.toLowerCase() : v.defaultLabel || "nothing changes";
     $("#crisis-queue").textContent = `Paused · no order in ${Math.ceil(Math.max(0, c.t))}s: ${dl}${m.crises.length > 1 ? ` · +${m.crises.length - 1} more waiting` : ""}`;
     const sig = c.uid + "|" + v.options.map(o => `${o.disabled ? 0 : 1}${o.sub}`).join("|");
@@ -776,6 +779,7 @@
     renderHud();
   };
   const canvas = $("#battlefield"), ctx = canvas.getContext("2d");
+  const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
   function toMap(e){
     const r = canvas.getBoundingClientRect(), s = Math.min(r.width / W, r.height / H);
     return {x:(e.clientX - r.left - (r.width - W * s) / 2) / s, y:(e.clientY - r.top - (r.height - H * s) / 2) / s};
@@ -908,6 +912,7 @@
     const r = m.report, dead = m.units.filter(u => u.status === "DEAD"), hurt = m.units.filter(u => u.outcome && /^(Wounded|Hurt|Downed|Dragged)/.test(u.outcome));
     const names = list => list.length > 1 ? list.slice(0, -1).map(u => u.name).join(", ") + " and " + list.at(-1).name : list.map(u => u.name).join("");
     const joel = m.units.find(u => u.id === "joel");
+    $(".result-card").className = `result-card outcome-${r.reason}`; // tone only
     $("#result-title").textContent = r.reason === "failure" ? "Signal lost" : r.reason === "retreat" ? "Team withdrawn" : "Team returning";
     let s;
     if(r.reason === "success") s = `${plural(r.rescued, "civilian")} brought out through the service door.${r.lost ? ` ${plural(r.lost, "civilian")} did not make it.` : ""}`;
@@ -925,7 +930,7 @@
     $("#result-base").textContent = r.resolved
       ? `${r.title} is resolved. ${camp.ended ? "That was the last signal." : `New signal: ${B.mission}.`} Base stock: ${camp.ammo} rounds · ${camp.meds} meds.`
       : `Base stock: ${camp.ammo} rounds · ${camp.meds} meds. ${plural(r.left, "civilian")} still trapped, barricade ${r.barricade}%. Day ${camp.day} next.${joel && rec("joel").status === "wounded" ? ` Joel can't lead for ${plural(rec("joel").out, "day")}: scavenge or rest.` : ""}`;
-    $("#casualty-list").innerHTML = m.units.map(u => `<div class="casualty-row ${u.status === "DEAD" ? "is-dead" : ""}"><strong>${u.name} · ${u.role}</strong><span>${u.outcome}</span></div>`).join("");
+    $("#casualty-list").innerHTML = m.units.map(u => `<div class="casualty-row ${u.status === "DEAD" ? "is-dead" : hurt.includes(u) ? "is-hurt" : ""}"><strong>${u.name} · ${u.role}</strong><span>${u.outcome}</span></div>`).join("");
     show("result-screen");
   }
 
@@ -943,6 +948,8 @@
     draw(); renderHud(); renderCrisis();
   }
   $("#pause-btn").onclick = () => { state.paused = !state.paused; $("#pause-btn").classList.toggle("selected", state.paused); $("#pause-btn").textContent = state.paused ? "▶" : "Ⅱ"; };
+  // leaving the app (home button, app switch, lock) pauses a live mission instead of letting crises time out unseen
+  document.addEventListener("visibilitychange", () => { if(document.hidden && m && m.running && !state.paused) $("#pause-btn").click(); });
   $$("[data-speed]").forEach(b => b.onclick = () => { state.speed = +b.dataset.speed; state.paused = false; $("#pause-btn").classList.remove("selected"); $("#pause-btn").textContent = "Ⅱ"; $$("[data-speed]").forEach(x => x.classList.toggle("selected", x === b)); });
 
   // ---------- HUD ----------
@@ -956,7 +963,7 @@
   function renderHud(){
     if(!m) return;
     const joel = m.units.find(u => u.id === "joel"), joelUp = joel && joel.status === "ACTIVE";
-    const chips = m.units.map(u => `<div class="unit-chip ${u.status.toLowerCase()}${u.tired ? " tired" : ""}"><strong>${u.name}</strong><small>${chipText(u)}</small></div>`).join("");
+    const chips = m.units.map(u => `<div class="unit-chip ${u.status.toLowerCase()}${u.tired ? " tired" : ""}${u.status === "ACTIVE" && u.hp < u.maxHp * .4 ? " low" : ""}" style="--hp:${u.status === "ACTIVE" ? Math.max(0, Math.round(u.hp / u.maxHp * 100)) : u.status === "DOWN" ? Math.round(clamp(u.bleed / 20, 0, 1) * 100) : 0}%"><strong>${u.name}</strong><small>${chipText(u)}</small></div>`).join("");
     const objective = m.objective === "reach" ? (m.barricade > 0 ? `Reach the civilians · barricade ${Math.ceil(m.barricade)}%` : `Barricade down · next civilian lost in ${Math.ceil(10 - (m.civClock || 0))}s`)
       : m.objective === "extract" ? `Extract ${plural(m.civs.filter(c => c.status === "following").length, "civilian")} · west door${m.holding ? " · holding (defensive)" : ""}`
       : m.objective === "choose" ? "Decide who comes out" : "No one left to save · retreat";
@@ -977,23 +984,29 @@
     }
     $("#cp-regen-label").textContent = !joelUp ? "NO REGEN · JOEL DOWN" : m.cp >= 3 ? "FULL" : `+1 IN ${Math.ceil(12 - m.cpRegen)}s`;
     $("#bandwidth-fill").style.width = `${joelUp && m.cp < 3 ? m.cpRegen / 12 * 100 : m.cp >= 3 ? 100 : 0}%`;
-    $("#noise-value").textContent = Math.round(m.noise);
+    const nextWave = m.wavesFired < 3 ? WAVE_AT[m.wavesFired] : 100;
+    $("#noise-value").textContent = `${Math.round(m.noise)} / ${nextWave}`;
+    $(".bandwidth").classList.toggle("noise-near", nextWave - m.noise <= 8);
     $("#noise-fill").style.width = `${Math.min(100, m.noise)}%`;
     $("#ammo-value").textContent = `${m.ammo} rds`;
     $("#meds-value").textContent = m.meds;
     $("#mission-clock").textContent = fmt(m.elapsed);
   }
   function addLog(text, type = "normal"){ $("#log-stream").insertAdjacentHTML("afterbegin", `<div class="log-entry ${type}"><time>${fmt(m ? m.elapsed : 0)}</time><span>${text}</span></div>`); }
+  // a short screen-edge flash that carries what happened: a trooper down, a wave, a blast, a door giving way
+  function jolt(kind){ const w = $(".battlefield-wrap"); if(!w) return; w.classList.remove("jolt-down", "jolt-wave", "jolt-blast", "jolt-door"); void w.offsetWidth; w.classList.add("jolt-" + kind); }
   function burst(x, y, color){ for(let i = 0; i < 5; i++) m.particles.push({x, y, vx:(Math.random() - .5) * 80, vy:(Math.random() - .5) * 80, t:.35, color}); }
 
   // ---------- draw ----------
   function draw(){
     ctx.fillStyle = "#111916"; ctx.fillRect(0, 0, W, H);
+    // visual scale only: when the canvas is drawn small (a phone), labels and markers grow so they stay readable
+    const vs = clamp(W / (canvas.clientWidth || W) * .7, 1, 2), ur = 10 * Math.min(1.3, vs), zr = Math.min(1.3, vs), px = n => `${Math.round(n * vs)}px monospace`;
     ctx.save(); ctx.lineWidth = 5;
     ROOMS.forEach((r, i) => {
       ctx.fillStyle = i % 2 ? "#17201d" : "#1b2421"; ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.strokeStyle = m && m.arm === "advance" && i !== m.squadRoom ? "#61d4cf" : "#34413c"; ctx.strokeRect(r.x, r.y, r.w, r.h);
-      ctx.fillStyle = "#53615b"; ctx.font = "11px monospace"; ctx.fillText(r.label, r.x + 14, r.y + 20);
+      ctx.fillStyle = "#6b7a74"; ctx.font = "bold " + px(11); ctx.fillText(r.label, r.x + 14, r.y + 10 + 11 * vs);
     });
     for(let x = 300; x < 400; x += 55){ ctx.fillStyle = "#29342f"; ctx.fillRect(x, 340, 16, 230); }
     ctx.fillStyle = "#26322e"; ctx.fillRect(470, 335, 210, 32); ctx.fillRect(470, 430, 210, 32); ctx.fillRect(760, 350, 240, 24);
@@ -1001,16 +1014,16 @@
     DOORS.forEach(d => {
       const vw = d.axis === "v", w = vw ? 26 : 44, h = vw ? 44 : 26;
       ctx.fillStyle = "#1e2a26"; ctx.fillRect(d.x - w / 2, d.y - h / 2, w, h);
-      if(d.sealed > 0){ ctx.fillStyle = "#d6ad55"; ctx.fillRect(vw ? d.x - 4 : d.x - 22, vw ? d.y - 22 : d.y - 4, vw ? 8 : 44, vw ? 44 : 8); ctx.fillStyle = "#d6ad55"; ctx.font = "bold 10px monospace"; ctx.fillText(Math.ceil(d.sealed) + "s", d.x + 8, d.y - 8); }
+      if(d.sealed > 0){ ctx.fillStyle = "#d6ad55"; ctx.fillRect(vw ? d.x - 4 : d.x - 22, vw ? d.y - 22 : d.y - 4, vw ? 8 : 44, vw ? 44 : 8); ctx.fillStyle = "#d6ad55"; ctx.font = "bold " + px(10); ctx.fillText(Math.ceil(d.sealed) + "s", d.x + 8, d.y - 8); }
       else if(m && m.arm === "seal"){ ctx.strokeStyle = "#61d4cf"; ctx.lineWidth = 2; ctx.strokeRect(d.x - w / 2, d.y - h / 2, w, h); }
     });
-    ctx.fillStyle = "#8dbb72"; ctx.fillRect(27, 438, 10, 44); ctx.font = "bold 10px monospace"; ctx.fillText("ENTRY", 44, 618);
+    ctx.fillStyle = "#8dbb72"; ctx.fillRect(27, 438, 10, 44); ctx.font = "bold " + px(10); ctx.fillText("ENTRY", 44, 620);
     EDGES.forEach(e => { ctx.fillStyle = "#5d211d"; const r = ROOMS[e.room]; if(e.room === 0) ctx.fillRect(e.x - 22, r.y - 6, 44, 8); else ctx.fillRect(r.x + r.w - 2, e.y - 22, 8, 44); });
     // civilians' corner + barricade
     const bar = m ? m.barricade : 100;
     ctx.strokeStyle = bar > 0 ? (bar > 40 ? "#8b7a55" : "#b4472f") : "#ff493d"; ctx.lineWidth = 3; ctx.setLineDash(bar > 0 ? [] : [4, 8]);
     ctx.beginPath(); ctx.moveTo(945, 55); ctx.lineTo(945, 160); ctx.lineTo(1055, 160); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = "#8dbb72"; ctx.font = "bold 10px monospace"; ctx.fillText(m && m.objective !== "reach" ? "" : `CIVILIANS ${Math.ceil(bar)}%`, 955, 180);
+    ctx.fillStyle = "#8dbb72"; ctx.font = "bold " + px(10); ctx.textAlign = "right"; ctx.fillText(m && m.objective !== "reach" ? "" : `CIVILIANS ${Math.ceil(bar)}%`, 1052, 172 + 10 * vs); ctx.textAlign = "left";
     if(m){
       // squad marker
       const R = ROOMS[m.squadRoom]; ctx.strokeStyle = "#61d4cf55"; ctx.lineWidth = 2; ctx.setLineDash([5, 6]); ctx.beginPath(); ctx.arc(R.cx, R.cy, 48, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -1019,7 +1032,7 @@
         if(!z.alive || !m.seen[z.room]) return;
         const t = ZT[z.type];
         ctx.fillStyle = z.type === "armoured" ? "#a68d67" : z.type === "bloater" ? "#9aa040" : z.type === "screamer" ? "#b48ad6" : z.type === "runner" ? (z.alert ? "#ff7a3d" : "#7a3a22") : z.alert ? "#b3372d" : "#6d2a25";
-        ctx.beginPath(); ctx.arc(z.x, z.y, t.r, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#ff776d55"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath(); ctx.arc(z.x, z.y, t.r * zr, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#ff776d55"; ctx.lineWidth = 1; ctx.stroke();
         if(z.type === "armoured"){ ctx.fillStyle = "#d2bea0"; ctx.fillRect(z.x - 8, z.y - 2, 16, 4); }
         if(z.type === "screamer" && z.scream > 0 && z.alert){ ctx.strokeStyle = "#d8b6ff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(z.x, z.y, t.r + 4 + z.scream * 4, 0, Math.PI * 2); ctx.stroke(); }
         if(z.type === "runner"){ ctx.strokeStyle = "#ff7a3d88"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(z.x - 9, z.y + 4); ctx.lineTo(z.x - 3, z.y); ctx.stroke(); }
@@ -1027,15 +1040,16 @@
       });
       m.units.forEach(u => {
         ctx.globalAlpha = u.status === "DEAD" ? .25 : u.status === "INJURED" ? .55 : 1;
-        ctx.fillStyle = u.status === "DOWN" ? "#ff493d" : u.color; ctx.beginPath(); ctx.arc(u.x, u.y, 10, 0, Math.PI * 2); ctx.fill();
+        if(u.status === "DOWN"){ const p = RM ? .5 : (Math.sin(performance.now() / 160) + 1) / 2; ctx.strokeStyle = `rgba(255,73,61,${.35 + p * .5})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(u.x, u.y, ur + 6 + p * 6, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.fillStyle = u.status === "DOWN" ? "#ff493d" : u.color; ctx.beginPath(); ctx.arc(u.x, u.y, ur, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = "#e8fff7"; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = "#07100f"; ctx.font = "bold 8px monospace"; ctx.textAlign = "center"; ctx.fillText(u.name[0], u.x, u.y + 3); ctx.textAlign = "left"; ctx.globalAlpha = 1;
+        ctx.fillStyle = "#07100f"; ctx.font = `bold ${Math.round(ur * .9)}px monospace`; ctx.textAlign = "center"; ctx.fillText(u.name[0], u.x, u.y + ur * .32); ctx.textAlign = "left"; ctx.globalAlpha = 1;
       });
       m.shots.forEach(s => { ctx.globalAlpha = Math.min(1, s.t * 8) * (s.miss ? .35 : 1); ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke(); });
       m.blasts.forEach(b => { ctx.globalAlpha = b.t; ctx.fillStyle = b.scream ? "#b48ad633" : "#c9d14a55"; ctx.beginPath(); ctx.arc(b.x, b.y, 95 * (1.2 - b.t / 2), 0, Math.PI * 2); ctx.fill(); });
       m.particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.t * 3); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); });
       ctx.globalAlpha = 1;
-      ROOMS.forEach((r, i) => { if(m.seen[i]) return; ctx.fillStyle = "#070c0bdd"; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.fillStyle = "#3d4a45"; ctx.font = "bold 34px monospace"; ctx.textAlign = "center"; ctx.fillText("?", r.x + r.w / 2, r.y + r.h / 2 + 12); ctx.textAlign = "left"; });
+      ROOMS.forEach((r, i) => { if(m.seen[i]) return; ctx.fillStyle = "#070c0bdd"; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.fillStyle = "#3d4a45"; ctx.font = "bold " + px(34); ctx.textAlign = "center"; ctx.fillText("?", r.x + r.w / 2, r.y + r.h / 2 + 12); ctx.textAlign = "left"; });
     }
     ctx.restore(); ctx.globalAlpha = 1;
   }
