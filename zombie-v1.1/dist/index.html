@@ -16,6 +16,7 @@
   <title>Zombie v1.1</title>
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
   <link rel="stylesheet" href="./styles.css?v=4.0">
+  <style>/* slice 4.1 */#deploy-btn.tired-warn{background:var(--amber);color:#140e02}#f-squad.warn{color:var(--amber)}.street-line{margin:2px 0 6px}</style>
 </head>
 <body>
   <main id="app">
@@ -101,6 +102,7 @@
           <button class="primary full" id="prepare-btn">Prepare team</button>
           <div class="choice-block day-actions">
             <span class="choice-label">OR SPEND THE DAY</span>
+            <p class="tired-line street-line" id="street-line" hidden></p>
             <div class="segmented">
               <button id="scavenge-btn"><strong>SCAVENGE</strong><small id="scav-who"></small><small class="odds" id="scav-odds"></small><small class="day-cost" id="scav-cost"></small></button>
               <button id="rest-btn"><strong>REST</strong><small>Heal</small><small class="day-cost" id="rest-cost"></small></button>
@@ -122,7 +124,7 @@
         <aside class="doctrine-panel"><div class="doctrine-body">
           <label>STANCE</label>
           <div class="segmented stance-pick" id="doctrine-choice">
-            <button data-doctrine="defensive"><strong>DEFENSIVE</strong><small>+15% hit · slow</small></button>
+            <button data-doctrine="defensive"><strong>DEFENSIVE</strong><small>Aimed · quiet · slow</small></button>
             <button class="selected" data-doctrine="controlled"><strong>CONTROLLED</strong><small>Moves when clear</small></button>
             <button data-doctrine="aggressive"><strong>AGGRESSIVE</strong><small>Fast · loud · −15%</small></button>
           </div>
@@ -192,6 +194,6 @@
   </main>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="./battle3d.js?v=4.0"></script>
-  <script src="./app.js?v=4.0"></script>
+  <script src="./app.js?v=4.1"></script>
 </body>
 </html>

@@ -56,7 +56,7 @@
     {key:"shop", mission:"Desperate Measures", title:"Convenience Shop", place:"CONVENIENCE SHOP · 3.8 KM",
       brief:"Civilians barricaded in. The shutters are failing.",
       labels:["SHOP FLOOR","CHECKOUT","STOCKROOM","AISLES","OFFICE","LOADING BAY"], civ:6, infected:30,
-      armouredEvery:7, runnersStart:0, waveRunners:0, crawlers:1, pack:0, noiseDecay:.7, bloaterRooms:[4,5,1], screamerRooms:[5,0,4]},
+      armouredEvery:10, runnersStart:0, waveRunners:0, crawlers:1, pack:0, noiseDecay:.7, softStart:true, bloaterRooms:[4,5,1], screamerRooms:[5,0,4]}, // slice 4.1: fewer armoured, none in the first noise wave
     {key:"cold", mission:"Cold Storage", title:"Cold Storage", place:"COLD STORAGE · 5.1 KM",
       brief:"Five workers in the cold room. Armoured and runners. Compressors hide noise.",
       labels:["DOCK OFFICE","SORTING","COLD ROOM","PALLET HALL","PUMP ROOM","FREEZER BAY"], civ:5, infected:34,
@@ -202,14 +202,14 @@
     BUILDINGS.forEach((b, i) => {
       const s = camp.b[i], done = i < camp.bIdx || (i === camp.bIdx && campaignOver()), active = i === camp.bIdx && !done, locked = i > camp.bIdx;
       $(`#obj-${i}`).classList.toggle("locked", locked);
-      $(`#obj-${i} small`).textContent = locked ? (b.night ? "Locked" : "No signal")
+      $(`#obj-${i} small`).textContent = locked ? (b.night ? "Opens after Cold Storage" : "No signal")
         : b.night ? (nightWait() ? `Horde in ${plural(nightWait(), "day")}` : "Tonight")
         : done ? `✓ ${s.rescued} saved${s.lost ? ` · ${s.lost} lost` : ""}` : [`${s.civilians} trapped`, s.rescued ? `${s.rescued} saved` : "", s.lost ? `${s.lost} lost` : ""].filter(Boolean).join(" · ");
       const node = $(`#node-${i}`);
       node.classList.toggle("mission-node", active); node.classList.toggle("resolved", done); node.classList.toggle("unknown-node", locked && !b.night);
       node.classList.toggle("selected", active);
       $("span", node).textContent = b.night ? (active ? "!" : "⌂") : locked ? "?" : done ? "✓" : "!";
-      $("small", node).textContent = b.night ? "HOME" : locked ? "NO SIGNAL" : done ? "RESOLVED" : "MISSION";
+      $("small", node).textContent = b.night ? (locked ? "AFTER 02" : "HOME") : locked ? "NO SIGNAL" : done ? "RESOLVED" : "MISSION";
     });
     $(".chapter-progress span").style.width = `${Math.round(camp.bIdx / 3 * 100) || 6}%`;
     $("#brief-num").textContent = `MISSION 0${camp.bIdx + 1}`;
@@ -246,9 +246,11 @@
     const so = scavOdds();
     const idle = B.night || over ? "" : cur().barricade - IDLE_DECAY < BAR_FLOOR ? "1 civilian dies" : `barricade −${IDLE_DECAY}`; // slice 3.1: any day away costs the same, so both buttons say it
     $("#scav-who").textContent = sc.length ? `${sc.map(p => p.name).join(" + ")} · +${so.lo}–${so.hi} rds` : "No one fit";
-    $("#scav-odds").innerHTML = sc.length ? `<b class="ok">${so.clean}%</b> ok <b class="hu">${so.hurt}%</b> hurt <b class="ki">${so.killed}%</b> KIA` : "";
+    $("#scav-odds").innerHTML = sc.length ? `${so.big ? `<b class="ok">${so.big}%</b> big ` : ""}<b class="ok">${so.clean}%</b> ok <b class="hu">${so.hurt}%</b> hurt <b class="ki">${so.killed}%</b> KIA` : "";
     $("#rest-btn").disabled = !free;
-    $("#rest-btn small").textContent = "Heal · clears tired";
+    const st = free ? street() : STREETS[0];
+    $("#rest-btn small").textContent = st.rest > 1 ? "Heal ×2 · clears tired" : "Heal · clears tired";
+    $("#street-line").textContent = st.line; $("#street-line").hidden = !st.line || !free;
     // ui pass 4: the cost of a day away gets its own line on both buttons, red when it is a life
     $$(".day-cost").forEach(e => { e.textContent = idle.replace(/^b/, "B"); e.hidden = !idle; e.classList.toggle("life", idle === "1 civilian dies"); });
     $("#parts-count").textContent = plural(camp.parts, "PART").toUpperCase(); $(".day-actions").hidden = B.night && !nightWait();
@@ -311,10 +313,31 @@
     if(!camp.ended && scars() >= MAX_SCARS) camp.ended = "joel";
   }
   // ---------- scavenge: a gamble, and the streets near base run dry if you lean on it ----------
+  // slice 4.1: four outcomes (big find, clean, hurt, KIA), and the day's street report moves the odds and the haul,
+  // so Scavenge vs Rest is a different call on a rain day, a herd day or a smoke day
   function scavOdds(){
-    const h = Math.min(3, camp.scavHeat || 0);
-    const safe = has("safehouse") ? .5 : 1, killed = Math.round((10 + h * 8) * safe), hurt = Math.round((30 + h * 7) * safe), clean = 100 - killed - hurt;
-    return {clean, hurt, killed, lo:Math.max(30, 60 - h * 20), hi:Math.max(50, 100 - h * 20)};
+    const h = Math.min(3, camp.scavHeat || 0), st = street();
+    const safe = has("safehouse") ? .5 : 1, r = (st.risk || 1) * safe;
+    const killed = Math.round((6 + h * 7) * r), hurt = Math.round((24 + h * 8) * r);
+    const big = Math.min(100 - killed - hurt, Math.round(Math.max(0, 18 - h * 6) * (st.big || 1))), clean = 100 - killed - hurt - big;
+    const k = st.haul || 1, step10 = v => Math.round(v * k / 10) * 10;
+    return {big, clean, hurt, killed, lo:step10(Math.max(30, 60 - h * 20)), hi:step10(Math.max(50, 100 - h * 20))};
+  }
+  // slice 4.1: one street report a day, fixed for that day (a reload doesn't reroll it)
+  const STREETS = [
+    {id:"clear", w:35, line:""},
+    {id:"rain", w:20, line:"Rain · scavenge safer, smaller haul", risk:.5, haul:.75},
+    {id:"smoke", w:15, line:"Smoke to the east · bigger haul, riskier", risk:1.4, haul:1.4, big:2},
+    {id:"herd", w:15, line:"Herd passing · scavenge risk ×2", risk:2},
+    {id:"still", w:15, line:"Still day · rest heals double", rest:2}
+  ];
+  function street(){
+    if(!camp.street || camp.street.day !== camp.day){
+      let roll = Math.random() * 100, s = STREETS[0];
+      for(const x of STREETS){ if(roll < x.w){ s = x; break; } roll -= x.w; }
+      camp.street = {day:camp.day, id:s.id}; saveCampaign();
+    }
+    return STREETS.find(x => x.id === camp.street.id) || STREETS[0];
   }
   const coolStreets = () => { camp.scavHeat = Math.max(0, (camp.scavHeat || 0) - 1); };
   $("#scavenge-btn").onclick = () => {
@@ -331,6 +354,10 @@
       rounds = Math.round(rounds * .6 / 10) * 10; med = false;
       const x = rec(victim.id); x.status = "wounded"; x.out = 3; // quietDay below heals one day of it at once: 2 days out
       note = `Scavenge hit trouble: +${rounds} rds. ${victim.name} hurt, out 2 days.`;
+    } else if(roll < o.killed + o.hurt + o.big){
+      // slice 4.1: the upside. A cache nobody has found: double haul, a part and a med, guaranteed
+      rounds = Math.round(rounds * 2 / 10) * 10; med = true; camp.parts++;
+      note = `Big find: +${rounds} rds, +1 part, +1 med.`;
     } else { camp.parts++; note = `Clean scavenge: +${rounds} rds, +1 part${med ? ", +1 med" : ""}.`; }
     if(rec(victim.id).status === "dead") rounds = sc.length > 1 ? rounds : 0;
     camp.ammo += rounds; if(med) camp.meds++;
@@ -345,6 +372,8 @@
     let note = "Rested.";
     if(build){ camp.parts -= build.cost; camp.up[build.id] = true; note = `Rested and built the ${build.name.toLowerCase()}.`; }
     if(has("coldroom")){ camp.meds++; note += " +1 med (cold room)."; }
+    // slice 4.1: a still day heals twice (the bench doesn't load twice)
+    if(street().rest > 1 && team().some(p => rec(p.id).status === "wounded")){ const a = camp.ammo; healDay(); camp.ammo = a; note += " A still day: wounds heal double."; }
     quietDay(note); state.recon = false; afterDay();
   }
   $("#rest-btn").onclick = () => restDay(null);
@@ -478,10 +507,21 @@
     $("#f-noise").textContent = `${state.route === "vehicle" ? VEHICLE_NOISE : 0} / 30`;
     const extra = Math.max(0, state.selected.size - 4), tiredN = [...state.selected].filter(isTired).length;
     $("#f-squad").textContent = `${state.selected.size}${tiredN ? ` · ${tiredN} tired` : ""}${extra ? ` · +${extra * 2} infected` : ""}`;
+    $("#f-squad").classList.toggle("warn", tiredRisk());
+    state.tiredAsk = false; deployLabel();
+  }
+  // slice 4.1 (TESTER: Mission 1 is a cliff): half or more of the team tired asks once before it goes
+  const tiredCount = () => B.night ? 0 : [...state.selected].filter(isTired).length;
+  const tiredRisk = () => { const n = tiredCount(); return n >= 2 && n * 2 >= state.selected.size; };
+  function deployLabel(){
+    const d = $("#deploy-btn"); d.classList.toggle("tired-warn", !!state.tiredAsk);
+    if(!canDeploy() || B.night) return;
+    d.textContent = state.tiredAsk ? `${tiredCount()}/${state.selected.size} tired · −15% hit · go?` : "Deploy team";
   }
   $("#deploy-btn").onclick = () => {
     if(!canDeploy()) return;
-    state.trav = null;
+    if(tiredRisk() && !state.tiredAsk){ state.tiredAsk = true; deployLabel(); return; }
+    state.tiredAsk = false; state.trav = null;
     if(B.night){ launch(); return; }
     showTravel();
   };
@@ -684,15 +724,15 @@
 
   function assignEscorts(){
     const n = m.civs.filter(c => c.status === "following").length;
-    const pool = m.units.filter(u => u.status === "ACTIVE").sort((a, b) => (a.id === "joel") - (b.id === "joel") || a.dmg - b.dmg);
+    const pool = m.units.filter(u => u.status === "ACTIVE" && !(u.carry > 0)).sort((a, b) => (a.id === "joel") - (b.id === "joel") || a.dmg - b.dmg);
     m.escorts = new Set(pool.slice(0, n));
   }
   function updateUnits(step){
     assignEscorts();
     const followers = m.units.filter(u => u.status === "ACTIVE" || u.status === "INJURED");
-    const fast = m.stance === "aggressive" || m.push;
+    const pace = m.push ? 1.35 : (STANCE[m.stance] || STANCE.controlled).move;
     followers.forEach((u, i) => {
-      const sp = 40 * (u.speed || 1) * (u.tired ? .85 : 1) * (fast ? 1.35 : 1) * (u.status === "INJURED" ? .75 : 1);
+      const sp = 40 * (u.speed || 1) * (u.tired ? .85 : 1) * pace * (u.status === "INJURED" ? .75 : 1);
       navigate(u, m.squadRoom, slot(m.squadRoom, i), sp * step, false);
     });
     for(const u of m.units){
@@ -712,7 +752,7 @@
       }
       if(u.status !== "ACTIVE") continue;
       u.cool -= step;
-      if(u.carry > 0){ u.carry -= step; continue; }
+      if(u.carry > 0){ u.carry -= step; if(u.carry <= 0) u.treating = false; continue; }
       if(m.escorts.has(u)) continue; // an escort can't shoot
       if(u.cool > 0) continue;
       if(m.ammo <= 0){ // melee only: slow, and they take more bites
@@ -732,23 +772,31 @@
   function pickTarget(u){
     if(m.focus && m.focus.z.alive && canShoot(u, m.focus.z, 420)) return m.focus.z;
     let best = null, bd = 1e9;
+    // slice 4.1: let sleeping rooms lie. Only Aggressive opens fire on infected that are still unaware in another room
+    // (a shot wakes the whole room). Raiders at night are exempt: they are walking at the shelter.
+    const wake = m.stance === "aggressive";
     for(const z of m.zombies){
       if(!z.alive || hiddenZ(z) || (z.ignored && dist(u, z) > 50) || !canShoot(u, z, 260)) continue;
+      if(!wake && !z.alert && !z.raid && z.room !== u.room) continue;
       const d = dist(u, z) + (z.alert ? 0 : 80);
       if(d < bd){ bd = d; best = z; }
     }
     return best;
   }
   const NOISE_PER_SHOT = .34; // slice 3: was .45, which fired a wave every ~7s with six guns
+  // slice 4.1: stances you can feel. Defensive: aimed and quiet, ~25% fewer rounds a kill and ~40% less noise, but ~15% less
+  // firepower and it holds a room until the next one is quiet. Aggressive: fast, more firepower, wakes rooms, ~25% more rounds a kill.
+  const STANCE = {defensive:{hit:.2, rof:1.5, noise:.6, move:.85}, controlled:{hit:0, rof:1, noise:1, move:1}, aggressive:{hit:-.15, rof:.75, noise:1, move:1.35}};
   function wakeRoom(r){ m.zombies.forEach(z => { if(z.alive && z.room === r && !z.lurk) z.alert = true; }); } // a crawler ignores noise: it waits
   function shoot(u, z){
-    m.ammo--; const d = dist(u, z);
-    m.noise += (u.noise || 1) * (u.rookie && !has("drill") ? 1.5 : 1) * NOISE_PER_SHOT;
+    m.ammo--; const d = dist(u, z), S = STANCE[m.stance] || STANCE.controlled;
+    // slice 4.1: stance noise is a day thing; the night comes on a clock whatever you do
+    m.noise += (u.noise || 1) * (u.rookie && !has("drill") ? 1.5 : 1) * NOISE_PER_SHOT * (m.night ? 1 : S.noise);
     z.alert = true; wakeRoom(u.room); wakeRoom(z.room);
-    const hit = .72 + (u.acc || 0) + (m.stance === "defensive" ? .15 : m.stance === "aggressive" ? -.15 : 0) - (u.tired ? .15 : 0) - (d > 200 ? .12 : 0);
+    const hit = .72 + (u.acc || 0) + S.hit - (u.tired ? .15 : 0) - (d > 200 ? .12 : 0);
     const focused = m.focus && m.focus.z === z, landed = Math.random() < hit;
     m.shots.push({x1:u.x, y1:u.y, x2:z.x, y2:z.y, t:.12, color:u.color, miss:!landed});
-    u.cool = u.rof * (m.stance === "defensive" ? 1.25 : m.stance === "aggressive" ? .75 : 1) * (u.tired ? 1.1 : 1);
+    u.cool = u.rof * S.rof * (u.tired ? 1.1 : 1);
     if(landed){ let dmg = u.close && d < 110 ? u.close : u.dmg; if(z.type === "armoured" && !focused) dmg *= .5; damageZombie(z, dmg); }
     if(m.ammo === 0) addLog("Out of ammo. The team is down to knives and rifle butts.", "critical");
   }
@@ -895,7 +943,7 @@
     const runners = Math.min(size, (m.wavesFired >= 1 || o.raid ? Math.floor(size / 3) : 0) + B.waveRunners);
     const r = ROOMS[edge.room], spot = () => ({x:clamp(edge.x + (Math.random() - .5) * 40, r.x + 12, r.x + r.w - 12), y:clamp(edge.y + (Math.random() - .5) * 40, r.y + 12, r.y + r.h - 12)});
     for(let i = 0; i < size; i++){
-      const p = spot(), z = addZombie(size >= 6 && i === 0 ? "armoured" : i >= size - runners ? "runner" : "shambler", edge.room, p.x, p.y, !o.raid);
+      const p = spot(), z = addZombie(size >= 6 && i === 0 && !(B.softStart && m.wavesFired === 0 && !o.trickle) ? "armoured" : i >= size - runners ? "runner" : "shambler", edge.room, p.x, p.y, !o.raid);
       if(o.raid) z.raid = true;
     }
     if(o.bloater){ const p = spot(), z = addZombie("bloater", edge.room, p.x, p.y, false); z.raid = true; }
@@ -974,17 +1022,20 @@
   const nearestAlly = u => m.units.filter(a => a !== u && a.status === "ACTIVE" && a.carry <= 0).sort((a, b) => (RDIST[a.room][u.room] * 500 + dist(a, u)) - (RDIST[b.room][u.room] * 500 + dist(b, u)))[0];
   // honest odds: every infected close to the casualty makes the patch-up less likely; a medic helps
   const closeInfected = u => m.zombies.filter(z => z.alive && z.room === u.room && dist(z, u) < 130).length;
+  // slice 4.1: a free medic (up, not carrying) treats instead: much better odds, more HP back, but he stops shooting for 5s
+  const freeMedic = u => m.units.find(x => x.medic && x.status === "ACTIVE" && x !== u && !(x.carry > 0));
   function stabilizeChance(u){
-    const medic = m.units.some(x => x.medic && x.status === "ACTIVE" && x !== u);
-    return clamp(.8 - closeInfected(u) * .14 + (medic ? .12 : 0) - (u.critical ? .15 : 0), .15, .92);
+    if(freeMedic(u)) return clamp(.92 - closeInfected(u) * .08 - (u.critical ? .1 : 0), .45, .95);
+    return clamp(.8 - closeInfected(u) * .14 - (u.critical ? .15 : 0), .15, .8);
   }
   function stabilize(u){
-    const medic = m.units.some(x => x.medic && x.status === "ACTIVE" && x !== u), p = stabilizeChance(u);
-    if(Math.random() < p){ u.status = "ACTIVE"; u.hp = Math.round((medic ? 60 : 40) * .7); u.bleed = 0; u.patched = true; addLog(`${u.name} is patched up and back on their feet.`, "critical"); }
+    const medic = freeMedic(u), p = stabilizeChance(u);
+    if(medic){ medic.carry = 5; medic.treating = true; }
+    if(Math.random() < p){ u.status = "ACTIVE"; u.hp = Math.round((medic ? 60 : 40) * .7); u.bleed = 0; u.patched = true; addLog(`${medic ? `${medic.name} got ${u.name}` : `${u.name} is patched up and`} back on their feet.`, "critical"); }
     else { u.bleed = Math.max(1, u.bleed - 4); addLog(`It didn't take. The med is gone and ${u.name} is still down, worse than before.`, "critical"); }
   }
   function takeCounts(){
-    const left = m.civs.filter(x => x.status === "trapped").length, able = m.units.filter(u => u.status === "ACTIVE").length;
+    const left = m.civs.filter(x => x.status === "trapped").length, able = m.units.filter(u => u.status === "ACTIVE" && u.carry !== Infinity).length;
     const most = Math.min(left, able); // one escort per civilian
     return [...new Set([most, Math.ceil(most / 2), 1])].filter(n => n >= 1);
   }
@@ -1024,12 +1075,15 @@
         options:[
           {id:"rescue", label:"Drag clear", sub:ally ? `●● · ${ally.name} carries 6s` : "●● · no one free", disabled:m.cp < 2 || !ally,
             run(){ m.cp -= 2; u.status = "INJURED"; u.hp = Math.max(1, Math.round(u.maxHp * .25)); ally.carry = 6; addLog(`${ally.name} dragged ${u.name} clear. Out of the fight, but alive.`, "critical"); }},
-          {id:"cover", label:"Patch up", sub:`● + med · ${pct}%`, disabled:m.cp < 1 || m.meds < 1,
+          {id:"cover", label:freeMedic(u) ? `${freeMedic(u).name} treats` : "Patch up", sub:`● + med · ${pct}%`, disabled:m.cp < 1 || m.meds < 1,
             run(){ m.cp--; m.meds--; stabilize(u); }},
+          // slice 4.1: no command needed, but it costs a gun. The carrier holds them for the rest of the mission and can't shoot.
+          {id:"carry", label:"Carry", sub:ally ? `Free · ${ally.name} stops shooting` : "No one free", disabled:!ally,
+            run(){ u.status = "INJURED"; u.hp = Math.max(1, Math.round(u.maxHp * .25)); ally.carry = Infinity; addLog(`${ally.name} shoulders ${u.name}. One gun fewer until you're out.`, "critical"); }},
           u.id === "joel"
             ? {id:"leave", label:"Fight on", sub:"Free · no command", danger:true, run(){ addLog("The team fights on. Joel is still down.", "critical"); }}
             : {id:"leave", label:"Leave", sub:"Free · lost for good", danger:true, run(){ u.status = "DEAD"; addLog(`Joel ordered the team to leave ${u.name}.`, "critical"); }}
-        ], defaults:["rescue", "cover"],
+        ], defaults:m.night ? ["rescue", "cover"] : ["rescue", "cover", "carry"],
         expire(){ addLog(`No order came. ${u.name} is still down.`, "critical"); }
       };
     }
@@ -1161,7 +1215,7 @@
   };
   $("#stance-bar").onclick = e => {
     const b = e.target.closest("button"); if(!b || !m || !m.running) return;
-    if(b.dataset.stance){ m.stance = b.dataset.stance; addLog(`Stance: ${m.stance}.`); }
+    if(b.dataset.stance){ m.stance = b.dataset.stance; addLog(`Stance: ${m.stance}${({defensive:" · aimed, quiet, slow", aggressive:" · fast, loud, wakes rooms"})[m.stance] || ""}.`); }
     else if(b.dataset.faw !== undefined){ m.faw = !m.faw; addLog(m.faw ? "Fire at will." : "Hold fire unless they are in the room."); }
     renderHud();
   };
@@ -1367,7 +1421,7 @@
   // ---------- HUD ----------
   const fmt = n => { const t = Math.floor(n); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
   function chipText(u){
-    if(u.status === "ACTIVE") return `${Math.max(0, Math.round(u.hp))} HP${u.carry > 0 ? " · CARRYING" : m.escorts.has(u) ? " · ESCORT" : ""}`;
+    if(u.status === "ACTIVE") return `${Math.max(0, Math.round(u.hp))} HP${u.carry > 0 ? (u.treating && u.carry < 99 ? " · TREATING" : " · CARRYING") : m.escorts.has(u) ? " · ESCORT" : ""}`;
     if(u.status === "DOWN") return u.id === "joel" ? (u.critical ? "DOWN · CRITICAL" : `DOWN · ${Math.ceil(u.bleed)}s`) : `DOWN · ${Math.ceil(u.bleed)}s`;
     if(u.status === "INJURED") return "CARRIED";
     return "KIA";
