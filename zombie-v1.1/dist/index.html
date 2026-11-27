@@ -15,7 +15,7 @@
   <meta name="description" content="Zombie v1.1 — an interactive survival command drama prototype.">
   <title>Zombie v1.1</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23071110'/%3E%3Cpath d='M12 37h11l5-12 8 22 6-10h10' fill='none' stroke='%23ff493d' stroke-width='6' stroke-linecap='square'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=2.1">
+  <link rel="stylesheet" href="./styles.css?v=3.0">
 </head>
 <body>
   <main id="app">
@@ -61,8 +61,8 @@
           <div class="chapter-progress"><span style="width:18%"></span></div>
           <div class="objective" id="obj-0"><span>01</span><div><strong>Desperate Measures</strong><small>Rescue the trapped civilians</small></div></div>
           <div class="objective locked" id="obj-1"><span>02</span><div><strong>Cold Storage</strong><small>Unknown location</small></div></div>
-          <div class="objective locked"><span>03</span><div><strong>The Long Night</strong><small>Locked</small></div></div>
-          <div class="hub-card"><span class="hub-icon">⌂</span><div><small>OPERATIONS HUB</small><strong id="hub-line">6 ready</strong></div></div>
+          <div class="objective locked" id="obj-2"><span>03</span><div><strong>The Long Night</strong><small>Locked</small></div></div>
+          <div class="hub-card"><span class="hub-icon">⌂</span><div><small>OPERATIONS HUB</small><strong id="hub-line">6 ready</strong><small id="hub-tags" hidden></small></div></div>
           <p class="ops-report" id="ops-report" hidden></p>
           <button class="secondary full new-campaign" id="new-campaign">New campaign</button>
         </aside>
@@ -74,7 +74,7 @@
             <path d="M118 510 C245 470 280 395 400 350 S620 300 735 185" />
             <path class="route-dim" d="M118 510 C260 570 440 565 650 510" />
           </svg>
-          <button class="map-node base-node" style="left:11%;top:75%" aria-label="Operations hub"><span>⌂</span><small>HOME</small></button>
+          <button class="map-node base-node" style="left:11%;top:75%" id="node-2" aria-label="Home base"><span>⌂</span><small>HOME</small></button>
           <button class="map-node unknown-node" style="left:68%;top:73%" id="node-1" aria-label="Cold Storage"><span>?</span><small>NO SIGNAL</small></button>
           <button class="map-node mission-node selected" style="left:77%;top:23%" id="node-0" aria-label="Desperate Measures"><span>!</span><small>MISSION</small></button>
           <div class="route-token" style="left:39%;top:51%"><span>●</span> 5 MIN</div>
@@ -86,6 +86,7 @@
           <div class="brief-head"><span id="brief-num">MISSION 01</span><strong>HIGH PRIORITY</strong></div>
           <h2 id="brief-title">Desperate Measures</h2>
           <p class="location" id="brief-place">CONVENIENCE SHOP · 3.8 KM</p>
+          <p class="tired-line" id="tired-line" hidden></p>
           <p id="brief-copy">Civilians are barricaded inside. The shutters are failing and something has entered through the stockroom.</p>
           <div class="intel-grid">
             <div><small>THREAT</small><strong id="threat-value">Unknown</strong></div>
@@ -94,11 +95,11 @@
             <div><small>BARRICADE</small><strong id="window-value">~100%</strong></div>
           </div>
           <button class="secondary full" id="recon-btn"><span>◉</span> Send recon team <small>20 min · 1 supply</small></button>
-          <div class="choice-block">
+          <div class="choice-block" id="route-block">
             <span class="choice-label">APPROACH</span>
             <div class="segmented" id="route-choice">
               <button data-route="foot"><strong>ON FOOT</strong><small>Silent · barricade −5</small></button>
-              <button class="selected" data-route="vehicle"><strong>VEHICLE</strong><small>Fast · +25 noise on arrival</small></button>
+              <button class="selected" data-route="vehicle"><strong>VEHICLE</strong><small>Fast · +15 noise on arrival</small></button>
             </div>
           </div>
           <button class="primary full" id="prepare-btn">Prepare deployment</button>
@@ -108,6 +109,8 @@
               <button id="scavenge-btn"><strong>SCAVENGE</strong><small>Two troopers · +ammo</small></button>
               <button id="rest-btn"><strong>REST</strong><small>Heal up · the day passes</small></button>
             </div>
+            <span class="choice-label build-label">OR REST AND BUILD · <b id="parts-count">0</b></span>
+            <div class="segmented build-grid" id="build-choice"></div>
           </div>
         </aside>
       </div>
@@ -139,6 +142,10 @@
           <button class="primary full danger" id="deploy-btn">Deploy team</button>
         </aside>
       </div>
+    </section>
+
+    <section class="screen result-screen travel-screen" id="travel-screen" aria-labelledby="travel-title">
+      <div class="result-card travel-card"><p class="eyebrow" id="travel-eyebrow">ON THE ROAD</p><h1 id="travel-title">On the road</h1><p class="result-summary" id="travel-copy"></p><div class="segmented vertical travel-actions" id="travel-actions"></div></div>
     </section>
 
     <section class="screen combat-screen" id="combat-screen" aria-labelledby="combat-title">
@@ -189,6 +196,6 @@
       <div class="result-card" id="end-card"><p class="eyebrow" id="end-eyebrow">CHAPTER 1 · CLOSED</p><h1 id="end-title">The long night is coming</h1><p class="result-summary" id="end-summary"></p><div class="result-grid" id="end-grid"></div><p class="eyebrow">THE SIGNALS</p><div class="casualty-list" id="end-buildings"></div><p class="eyebrow">THE TEAM</p><div class="casualty-list" id="end-roster"></div><p class="result-base" id="end-base"></p><button class="primary" id="end-new">New campaign</button></div>
     </section>
   </main>
-  <script src="./app.js?v=2.1"></script>
+  <script src="./app.js?v=3.0"></script>
 </body>
 </html>

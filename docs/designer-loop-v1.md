@@ -105,6 +105,22 @@ One building with honest stakes, replayable across a few days.
 - **Orders lock during a crisis (ui-pass-1 note 1).** Advance, Seal, Focus and Medkit are greyed out, and a tap logs "Orders wait. Make the call first." The reason: the sim is paused, so command spent there is free planning, and on a phone the pick bar pushed the options off screen. Stances (free) and Retreat (a real answer to any crisis) stay live.
 - **Last-rescue window.** "Who comes out" only opens when there are at least 2 options. Otherwise the log says "No choice to make" and the team moves. When it does open, it names any spotted crawler on the way out, or warns that rooms nobody swept may hide one.
 
+**Built in slice 3 (2026-11-27), answering `docs/tester-report-slice2.1.md` and the missing loop steps:**
+
+The loop as it now exists (Chapter 1, about 8-11 days, 5-7 missions, 20-30 minutes):
+1. **Plan** (ops map): pick the day. Mission, Scavenge (ammo, a part, a risk), Rest (heal, clears TIRED), or Rest and build one upgrade with parts.
+2. **Deploy**: team, stance, loadout (with a short "rec" hint), recon, route.
+3. **Traverse**: one road event, one choice: barricade time, noise, ammo, a bite risk, a part, or one more survivor (6 events, route-aware, no repeats in a row).
+4. **Engage**: reach the civilians, then **hold the room 14s** while they get ready (loud: +10 noise, the neighbouring rooms wake), then walk them out while a few more infected find the column every 18s.
+5. **Resolve**: casualties, stock, parts (cache +1, crawler stash +1), volunteers.
+6. **Upgrade**: Walls 4, Infirmary 3, Reload bench 3, Radio mast 2, Drill 2. A chapter earns about 8-10 parts, so you buy two or three, and each build costs a rest day.
+7. **Expand**: the shop gives +2 parts and a Safe house (scavenge risk halved), and opens Cold Storage. Cold Storage gives +2 parts and a Cold room (+1 med a rest day), and starts the horde clock (2 prep days).
+8. **The Long Night** (finale, home base): hold the shelter until dawn (2:30). There are 7 raids on a clock, with bloaters in raids 3 and 6, and from raid 4 they come two ways at once. Raiders walk for the shelter, not for you. All base stock is on hand ("the night takes ~250"). The Walls shut the back wall and start the shelter at 100%. It ends on Dawn, The base fell or Into the rain.
+
+Balance: noise per shot .45 → .34, shop decay .5 → .7, vehicle noise 25 → 15, the repeat wave resets to 60. Shamblers 28 HP / 12 dmg, runner 8 dmg, armoured 16 dmg, unfocused armour ×.5. Melee 14 dmg. Base stock 300, default carry 180. Speed resets to 1x every mission. An overrun drags out about half of the downed (out 3 days). The first wipe brings two drifters, and only the second ends the campaign. A critical Joel is hauled up by the nearest trooper, and command regen runs at half pace while he is carried (this fixes the stuck DOWN chip). A reload resumes on ops or the end screen. A crawler killed before it moves drops a +1 part stash, and a spotted crawler is marked on the map. The brief shows a "Tired: …" line.
+
+Not verified: phone (iOS) play, portrait rotation of the new screens, and a full human-paced run timed end to end.
+
 ## 6. Open questions for the user
 
 1. **Control depth:** is the player a commander (stances, room orders and crises only, as designed here) or should they also select and move individual troopers? This doc assumes commander.

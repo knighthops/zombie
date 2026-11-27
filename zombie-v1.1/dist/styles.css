@@ -383,3 +383,13 @@ html.land .casualty-row span:last-child{font-size:14px;text-align:right}
 html.land .result-base{font-size:15px;margin:0 0 10px}
 html.land .result-card .primary{position:sticky;bottom:calc(6px + var(--sab));width:100%;margin:0 0 calc(12px + var(--sab));min-height:54px;z-index:2;box-shadow:0 -16px 24px #0c1513}
 @media(prefers-reduced-motion:reduce){html.land .log-ticker.show{animation:none;opacity:1}}
+/* slice 3: build row, tired line, base tags, the road */
+.build-label{margin-top:12px}.build-label b{color:var(--amber)}
+.segmented.build-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:0}
+.segmented.build-grid button{border-left:1px solid var(--line);margin:0 -1px -1px 0;text-align:left;min-height:52px}
+.segmented.build-grid button:disabled{opacity:.4}
+.tired-line{color:var(--amber) !important;font:12px ui-monospace,monospace;margin:6px 0 0}
+#hub-tags{display:block;margin-top:4px;color:var(--amber)}
+.travel-actions{margin-top:22px}.travel-actions button{min-height:58px}
+.travel-actions button strong{font-size:16px;color:var(--ink)}
+[hidden]{display:none !important}
