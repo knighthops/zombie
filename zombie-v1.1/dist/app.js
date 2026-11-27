@@ -202,15 +202,21 @@
     BUILDINGS.forEach((b, i) => {
       const s = camp.b[i], done = i < camp.bIdx || (i === camp.bIdx && campaignOver()), active = i === camp.bIdx && !done, locked = i > camp.bIdx;
       $(`#obj-${i}`).classList.toggle("locked", locked);
-      $(`#obj-${i} small`).textContent = locked ? (b.night ? "Opens after Cold Storage" : "No signal")
+      $(`#obj-${i} small`).textContent = locked ? (b.night ? "Clear Cold Storage first" : "No signal")
         : b.night ? (nightWait() ? `Horde in ${plural(nightWait(), "day")}` : "Tonight")
         : done ? `✓ ${s.rescued} saved${s.lost ? ` · ${s.lost} lost` : ""}` : [`${s.civilians} trapped`, s.rescued ? `${s.rescued} saved` : "", s.lost ? `${s.lost} lost` : ""].filter(Boolean).join(" · ");
       const node = $(`#node-${i}`);
       node.classList.toggle("mission-node", active); node.classList.toggle("resolved", done); node.classList.toggle("unknown-node", locked && !b.night);
       node.classList.toggle("selected", active);
       $("span", node).textContent = b.night ? (active ? "!" : "⌂") : locked ? "?" : done ? "✓" : "!";
-      $("small", node).textContent = b.night ? (locked ? "AFTER 02" : "HOME") : locked ? "NO SIGNAL" : done ? "RESOLVED" : "MISSION";
+      $("small", node).textContent = b.night ? (locked ? `AFTER ${plural(i - camp.bIdx, "MISSION").toUpperCase()}` : "HOME") : locked ? "NO SIGNAL" : done ? `${s.rescued} SAVED` : "MISSION";
+      node.classList.toggle("locked-node", locked && !!b.night);
     });
+    // ui pass 6: the lit route and its time token follow the open mission, so a cleared node never looks like the target
+    const paths = $$(".routes path"), act = camp.bIdx;
+    paths.forEach((p, i) => p.classList.toggle("route-dim", i !== act));
+    const tok = $(".route-token"); tok.hidden = act > 1;
+    if(act <= 1) Object.assign(tok.style, act ? {left:"34%", top:"79%"} : {left:"39%", top:"51%"});
     $(".chapter-progress span").style.width = `${Math.round(camp.bIdx / 3 * 100) || 6}%`;
     $("#brief-num").textContent = `MISSION 0${camp.bIdx + 1}`;
     $("#brief-title").textContent = B.mission; $("#brief-place").textContent = B.place; $("#brief-copy").textContent = B.brief;
@@ -220,8 +226,10 @@
     const fitN = team().filter(p => available(p.id)).length, who = tired.length <= 2 ? tired.join(" & ") : tired.length === fitN ? `All ${fitN}` : `${tired.length}`;
     const tl = [tired.length ? `${who} tired · out yesterday · −15% hit · a day off clears` : "", B.night ? `Ammo ${camp.ammo} · night needs ~${NIGHT_AMMO}` : ""].filter(Boolean);
     $("#tired-line").innerHTML = tl.map(t => `<span>${t}</span>`).join(""); $("#tired-line").hidden = !tl.length;
-    $("#ops-report").textContent = camp.report || ""; $("#ops-report").hidden = !camp.report;
-    $("#brief-report").textContent = camp.report || ""; $("#brief-report").hidden = !camp.report; // phone copy, at the top of the brief
+    // ui pass 6: the report is about the day just gone; "Day 21:" under a "DAY 22" header read as a wrong count
+    const rep = (camp.report || "").replace(/^Day (\d+):/, (all, n) => +n === camp.day - 1 ? "Yesterday:" : +n === camp.day ? "Today:" : all);
+    $("#ops-report").textContent = rep; $("#ops-report").hidden = !camp.report;
+    $("#brief-report").textContent = rep; $("#brief-report").hidden = !camp.report; // phone copy, at the top of the brief
     // ui pass 4: the night brief shows the shelter, the ways in and what Walls change; a building brief shows its reward tiers
     $("#threat-label").textContent = B.night ? "SHELTER" : "INFECTED"; $("#window-label").textContent = B.night ? "WAYS IN" : "BARRICADE";
     $("#threat-value").textContent = B.night ? `${NIGHT_CAP()}%` : threatText();
@@ -391,7 +399,7 @@
   $("#back-map").onclick = () => { renderOps(); show("ops-screen"); };
   // leaving a mission: drop the sim and wipe every trace of it from the page, so nothing stale shows later
   function clearMission(){
-    m = null; clearInterval(timer); timer = null; state.paused = false;
+    m = null; clearInterval(timer); timer = null; setPaused(false);
     DOORS.forEach(d => { d.sealed = 0; d.cd = 0; });
     $("#log-stream").innerHTML = ""; $("#log-ticker").textContent = ""; $("#log-ticker").className = "log-ticker"; $("#squad-status").innerHTML = ""; $("#objective-text").textContent = "";
     $("#pick-bar").hidden = true; $("#pick-bar").innerHTML = "";
@@ -435,11 +443,12 @@
       : kind === "joel" ? "The third time, he did not get up."
       : "No one is left to send.";
     const sawDawn = camp.bIdx >= 2 && kind !== "wiped" && kind !== "joel";
-    $("#end-grid").innerHTML = `<div><span>DAYS</span><strong>${days}</strong></div><div><span>SAVED</span><strong>${all.r}</strong></div><div><span>${sawDawn ? (good ? "SAW DAWN" : "GOT OUT") : "CIV. LOST"}</span><strong>${sawDawn ? night.rescued : all.l}</strong></div><div><span>TEAM LOST</span><strong>${dead.length}</strong></div>`;
+    // ui pass 6: "SAVED 7" (brought home from the buildings) sat next to the night's "4/6 safe"; name each count for what it is
+    $("#end-grid").innerHTML = `<div><span>DAYS</span><strong>${days}</strong></div><div><span>SAVED</span><strong>${all.r}</strong></div><div><span>${sawDawn ? (good ? "SAW DAWN" : "GOT OUT") : "CIV. LOST"}</span><strong>${sawDawn ? `${night.rescued}<small>/${night.civStart}</small>` : all.l}</strong></div><div><span>TEAM LOST</span><strong>${dead.length}</strong></div>`;
     $("#end-buildings").innerHTML = BUILDINGS.map((b, i) => {
-      const s = camp.b[i], reached = i <= camp.bIdx;
-      const txt = !reached ? "—" : b.night ? (camp.missions && kind && kind !== "wiped" && kind !== "joel" ? `${s.rescued}/${s.civStart} safe` : "—")
-        : `${s.rescued} saved · ${s.lost} lost${s.civilians > 0 ? ` · ${s.civilians} inside` : ""}`;
+      const s = camp.b[i], reached = i <= camp.bIdx, trips = s.trips ? ` · ${plural(s.trips, "trip")}` : "";
+      const txt = !reached ? "—" : b.night ? (camp.missions && kind && kind !== "wiped" && kind !== "joel" ? `${s.rescued}/${s.civStart} ${good ? "saw dawn" : "got out"}` : "—")
+        : `${s.rescued} saved · ${s.lost} lost${s.civilians > 0 ? ` · ${s.civilians} inside` : ""}${trips}`;
       return `<div class="casualty-row ${reached && (s.lost || s.civilians > 0) ? "is-hurt" : ""}"><strong>${b.title}</strong><span>${txt}</span></div>`;
     }).join("");
     $("#end-roster").innerHTML = team().map(p => {
@@ -448,7 +457,7 @@
         : isDead ? `KIA${x.diedDay ? ` · day ${x.diedDay}` : ""}` : x.status === "wounded" ? "Wounded" : "Alive";
       return `<div class="casualty-row ${isDead ? "is-dead" : x.status === "wounded" || (p.id === "joel" && scars()) ? "is-hurt" : ""}"><strong>${p.name}</strong><span>${st}</span></div>`;
     }).join("");
-    $("#end-base").textContent = `${plural(camp.missions, "mission")} · ${camp.ammo} rds · ${plural(camp.meds, "med")} left`;
+    $("#end-base").textContent = `${plural(camp.missions, "deployment")} · ${camp.ammo} rds · ${plural(camp.meds, "med")} left`;
     show("end-screen");
   }
 
@@ -516,7 +525,7 @@
   function deployLabel(){
     const d = $("#deploy-btn"); d.classList.toggle("tired-warn", !!state.tiredAsk);
     if(!canDeploy() || B.night) return;
-    d.textContent = state.tiredAsk ? `${tiredCount()}/${state.selected.size} tired · −15% hit · go?` : "Deploy team";
+    d.textContent = state.tiredAsk ? `${tiredCount()}/${state.selected.size} tired · −15% hit · deploy?` : "Deploy team";
   }
   $("#deploy-btn").onclick = () => {
     if(!canDeploy()) return;
@@ -646,7 +655,7 @@
       addLog(`${B.labels[CIV][0] + B.labels[CIV].slice(1).toLowerCase()} barricade ${Math.round(m.barricade)}%. Noise pulls them off it.`);
     }
     if(scars()) addLog(`Joel: ${plural(scars(), "scar")}, command every ${m.regenT}s.`);
-    $("#pause-btn").classList.remove("selected"); $("#pause-btn").textContent = "Ⅱ"; state.paused = false;
+    setPaused(false);
     m.hudSig = ""; renderHud(); renderCrisis();
   }
 
@@ -1078,7 +1087,7 @@
           {id:"cover", label:freeMedic(u) ? `${freeMedic(u).name} treats` : "Patch up", sub:`● + med · ${pct}%`, disabled:m.cp < 1 || m.meds < 1,
             run(){ m.cp--; m.meds--; stabilize(u); }},
           // slice 4.1: no command needed, but it costs a gun. The carrier holds them for the rest of the mission and can't shoot.
-          {id:"carry", label:"Carry", sub:ally ? `Free · ${ally.name} stops shooting` : "No one free", disabled:!ally,
+          {id:"carry", label:"Carry", sub:ally ? `Free · costs ${ally.name}'s gun` : "No one free", disabled:!ally,
             run(){ u.status = "INJURED"; u.hp = Math.max(1, Math.round(u.maxHp * .25)); ally.carry = Infinity; addLog(`${ally.name} shoulders ${u.name}. One gun fewer until you're out.`, "critical"); }},
           u.id === "joel"
             ? {id:"leave", label:"Fight on", sub:"Free · no command", danger:true, run(){ addLog("The team fights on. Joel is still down.", "critical"); }}
@@ -1129,7 +1138,8 @@
       return {
         title:"Who comes out?",
         copy:`1 escort per civilian · escorts can't shoot${warn}`,
-        options:counts.map(n => ({id:"take" + n, label:n === left ? `Take all ${n}` : `Take ${n}`, sub:`${shooters(n)} shooting`, danger:shooters(n) === 0, run:take(n)})), defaults:[],
+        // ui pass 6: "3 shooting" read as "the 3 you take shoot"; say what is left to fight
+        options:counts.map(n => ({id:"take" + n, label:n === left ? `Take all ${n}` : `Take ${n}`, sub:shooters(n) ? `${plural(shooters(n), "gun")} left` : "No guns left", danger:shooters(n) === 0, run:take(n)})), defaults:[],
         defaultLabel:`take ${Math.min(left, Math.max(1, able - 2))}`,
         expire(){ const n = Math.min(left, Math.max(1, able - 2)); addLog("No order. The team takes who it can protect."); take(n)(); }
       };
@@ -1343,7 +1353,7 @@
     camp.ammo = Math.max(0, camp.ammo - m.ammoStart + m.ammo);
     camp.meds = Math.max(0, camp.meds - m.medsStart + m.meds);
     if(m.units.some(u => u.id === "joel" && u.overrun)){ camp.ammo = Math.max(0, camp.ammo - 40); camp.meds = Math.max(0, camp.meds - 1); }
-    const s = cur();
+    const s = cur(); s.trips = (s.trips || 0) + 1; // ui pass 6: a count only, for the ending's rows
     if(m.night){
       // the finale ends the chapter whatever happens: dawn, a fall, or Joel giving the base up
       s.rescued = r.rescued; s.lost = r.lost; s.civilians = 0; r.title = B.title; r.left = 0;
@@ -1388,7 +1398,7 @@
     else if(r.reason === "success" && !dead.length && !hurt.length) bits.push(r.left ? "The team came back whole." : "Everyone is coming home.");
     if(r.joined && r.joined.length) bits.push(`${r.joined.join(" and ")} joined.`);
     $("#result-summary").textContent = bits.join(" "); $("#result-summary").hidden = !bits.length;
-    $("#result-grid").innerHTML = `<div><span>SAVED</span><strong>${r.rescued}<small>/${m.civStart}</small></strong></div><div><span>KILLS</span><strong>${m.kills}</strong></div><div><span>ROUNDS</span><strong>${r.ammoUsed}</strong></div><div><span>TEAM LOST</span><strong>${dead.length}</strong></div>`;
+    $("#result-grid").innerHTML = `<div><span>${m.night ? (r.reason === "success" ? "SAW DAWN" : "GOT OUT") : "SAVED"}</span><strong>${r.rescued}<small>/${m.civStart}</small></strong></div><div><span>KILLS</span><strong>${m.kills}</strong></div><div><span>ROUNDS</span><strong>${r.ammoUsed}</strong></div><div><span>TEAM LOST</span><strong>${dead.length}</strong></div>`;
     const rw = REWARDS[r.key], pay = r.pay || {};
     $("#result-base").textContent = m.night ? "" : r.resolved
       ? `${r.title} ${pay.bonus ? "is ours" : pay.parts ? "· few saved" : "is lost"} · ${pay.parts ? `+${pay.parts} ${pay.parts > 1 ? "parts" : "part"}` : "no reward"}${rw && pay.bonus ? ` · ${rw.name}` : ""} · next: ${B.mission}`
@@ -1413,10 +1423,20 @@
     }
     draw(); renderHud(); renderCrisis();
   }
-  $("#pause-btn").onclick = () => { state.paused = !state.paused; $("#pause-btn").classList.toggle("selected", state.paused); $("#pause-btn").textContent = state.paused ? "▶" : "Ⅱ"; };
+  // ui pass 6: a pause always says why, and one tap on the map resumes at the speed you had. Only two things pause:
+  // you (Ⅱ), or leaving the app. A crisis holds the sim inside its own card, which already says PAUSED.
+  function setPaused(on, why){
+    state.paused = on; state.pauseWhy = on ? why || "you" : null;
+    $("#pause-btn").classList.toggle("selected", on); $("#pause-btn").textContent = on ? "▶" : "Ⅱ";
+    $("#pause-why").textContent = state.pauseWhy === "away" ? "PAUSED · YOU LEFT THE APP" : "PAUSED";
+    $("#pause-go").textContent = `▶ RESUME ${state.speed}×`;
+    $("#pause-banner").hidden = !on;
+  }
+  $("#pause-btn").onclick = () => setPaused(!state.paused, "you");
+  $("#pause-banner").onclick = () => setPaused(false);
   // leaving the app (home button, app switch, lock) pauses a live mission instead of letting crises time out unseen
-  document.addEventListener("visibilitychange", () => { if(document.hidden && m && m.running && !state.paused) $("#pause-btn").click(); });
-  $$("[data-speed]").forEach(b => b.onclick = () => { state.speed = +b.dataset.speed; state.paused = false; $("#pause-btn").classList.remove("selected"); $("#pause-btn").textContent = "Ⅱ"; $$("[data-speed]").forEach(x => x.classList.toggle("selected", x === b)); });
+  document.addEventListener("visibilitychange", () => { if(document.hidden && m && m.running && !state.paused) setPaused(true, "away"); });
+  $$("[data-speed]").forEach(b => b.onclick = () => { state.speed = +b.dataset.speed; setPaused(false); $$("[data-speed]").forEach(x => x.classList.toggle("selected", x === b)); });
 
   // ---------- HUD ----------
   const fmt = n => { const t = Math.floor(n); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
@@ -1441,6 +1461,9 @@
       $("#squad-status").innerHTML = chips;
       $("#objective-text").innerHTML = objective; // ui pass 4: "paused" is a tag, not more text
       $("#command-points").textContent = "● ".repeat(m.cp) + "○ ".repeat(3 - m.cp);
+      // ui pass 6: a point coming back is felt where you spend it: the dots and the orders flash once, and the orders stay lit while one is in hand
+      if(m.cpSeen != null && m.cp > m.cpSeen){ [$(".bandwidth"), $("#command-bar")].forEach(el => { el.classList.remove("cp-up"); void el.offsetWidth; el.classList.add("cp-up"); }); }
+      m.cpSeen = m.cp; $("#command-bar").classList.toggle("cp-ready", m.cp > 0 && !locked);
       $$("#stance-bar [data-stance]").forEach(b => b.classList.toggle("selected", b.dataset.stance === m.stance));
       const faw = $("#stance-bar [data-faw]"); faw.textContent = m.faw ? "FIRE AT WILL: ON" : "FIRE AT WILL: OFF"; faw.classList.toggle("faw-off", !m.faw);
       $$("#command-bar [data-command]").forEach(b => {
@@ -1458,6 +1481,7 @@
     $("#noise-value").textContent = `${Math.round(m.noise)} / ${nextWave}`;
     $(".bandwidth").classList.toggle("noise-near", nextWave - m.noise <= 8);
     $("#noise-fill").style.width = `${Math.min(100, m.noise)}%`;
+    $$(".noise-line i").forEach((t, i) => t.classList.toggle("hit", i < m.wavesFired)); // ui pass 6: waves already pulled are ticked off
     $("#ammo-value").textContent = `${m.ammo} rds`;
     $("#meds-value").textContent = m.meds;
     $("#mission-clock").textContent = fmt(m.elapsed);

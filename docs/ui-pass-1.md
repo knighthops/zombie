@@ -217,3 +217,29 @@ At 667 wide the rail is 236px, and "CONTROLLED" did not fit (86px of text in a 6
 - A real iPhone (frame rate, heat, WebGL memory).
 - The offline 2D fallback (code path kept, not exercised).
 - Physical touch taps. Taps were synthesized click events with real coordinates.
+
+# UI pass 6: readable squad, honest pauses, true totals (v4.2)
+
+## What changed
+- **Squad spread (battle3d.js, render only).** The sim's slots are 30 map units apart, but at phone scale a figure is ~25, so six troopers and their cones sat on one spot (and queued at a door they shared one point). Each frame the renderer now pushes the squad's room formation out from its centre (×1.15–2.3 with the figure scale, clamped inside the room) and then pushes any two troopers in the same room apart (min 1.8 figure widths). Offsets ease in and out, so nothing jumps. Tracers and the crisis bubble start from the drawn spot. The sim is untouched. Cones are shorter and softer (2.1, opacity .6), Joel's reticle is smaller (3.0), and the squad ring follows the group and fits its spread.
+- **Pauses.** Only two things pause: you (Ⅱ) or leaving the app. A crisis holds the sim inside its card, which already says PAUSED. Every other "pause" was the app being hidden (the pane in testing). A pause now shows a banner on the map: "PAUSED" or "PAUSED · YOU LEFT THE APP", and "▶ RESUME 2×". One tap resumes at the speed you had.
+- **Totals.** The ops report now reads "Yesterday:" (or "Today:") instead of "Day 21:" under a "DAY 22" header. The ending shows SAVED (from the buildings) next to SAW DAWN 4/6, and the building rows say "4/6 saw dawn", "2 saved · 4 lost · 2 trips". The base line says "5 deployments". The night's after-action grid says SAW DAWN / GOT OUT, not SAVED. Each building counts its trips (display only).
+- **Map nodes.** The lit route and the "5 MIN" token follow the open mission (the old route stayed lit to the cleared shop). A cleared node reads "N SAVED", not RESOLVED. The locked night reads "AFTER 2 MISSIONS" / "AFTER 1 MISSION", and its objective row says "Clear Cold Storage first".
+- **Wording.** "Take 3 · 3 shooting" is now "Take 3 · 3 guns left" ("No guns left" at zero). Carry: "Free · costs Ruiz's gun". The tired ask: "4/6 tired · −15% hit · deploy?".
+- **Noise meter.** The 30/60/90 wave marks are labelled; a mark already pulled turns red.
+- **Command points.** A point coming back flashes the dots and the orders strip once. While a point is in hand, the orders have a lit top edge and their ● costs turn cyan.
+- **Slice 4.1 styles** moved from the inline `<style>` in index.html into styles.css (amber deploy ask, amber team line, street report with an amber rule).
+- `?v=4.2` on styles.css, battle3d.js and app.js.
+
+## Verified (browser pane, three.js r128 loaded)
+- 844x390: a Shop mission to its end (crises: Who comes out, Bloater, four downs), then Cold Storage opened and deployed. Six separate figures and cones in every room and at doors, Joel starred. Pause banner and one-tap resume at 2×. 9 command-point flashes in one mission.
+- 390x844 rotated: the right-hand rooms (stockroom, loading bay) are whole, down to the outer wall, above the rail; the crisis card, banner and end screen read correctly.
+- Ending checked with a seeded save (5 deployments, 2+2 trips, 4/6 saw dawn).
+- Console: no errors.
+- `docs/guide/img/map-hold.png` recaptured (Hold the stockroom, squad in two rows).
+
+## Not verified
+- A real iPhone, the visibility pause on a real app switch (code path only), the Long Night under 4.2.
+
+## For DESIGNER
+- Speed resets to 1× at each mission start (slice 3 rule); kept.

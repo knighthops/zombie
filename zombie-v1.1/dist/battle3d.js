@@ -38,7 +38,7 @@ function sectorGeo(len, half, seg){
 }
 const BG = {
   disc:flatG(new T.CircleGeometry(1, 28)), thin:flatG(new T.RingGeometry(.9, 1, 40)), ring:flatG(new T.RingGeometry(.72, 1, 32)),
-  dash:arcRing(.72, 1, 8, .62), squad:arcRing(.96, 1, 18, .55), cone:sectorGeo(2.7, .46, 12)
+  dash:arcRing(.72, 1, 8, .62), squad:arcRing(.96, 1, 18, .55), cone:sectorGeo(2.1, .42, 12)
 };
 
 /* ---------- textures ---------- */
@@ -256,7 +256,7 @@ const SHADOW_M = new T.MeshBasicMaterial({map:TX.glow, color:0x000000, transpare
 const HAZE_M = B(C.inf, .22, true); HAZE_M.map = TX.glow;
 const GLOW_M = B(C.elite, .6, true); GLOW_M.map = TX.glow;
 const DASH_M = B(C.civ, 1);
-const CONE_M = new T.MeshBasicMaterial({color:0x7dffd0, vertexColors:true, transparent:true, opacity:.8, depthWrite:false, blending:T.AdditiveBlending, side:T.DoubleSide});
+const CONE_M = new T.MeshBasicMaterial({color:0x7dffd0, vertexColors:true, transparent:true, opacity:.6, depthWrite:false, blending:T.AdditiveBlending, side:T.DoubleSide});
 const PULSE_M = B(C.down, 1), PULSE2_M = B(C.down, .95), POOL_M = B(C.down, .2);
 const GHOST_M = [B(C.inf, .18, true), B(C.inf, .1, true), B(C.inf, .05, true)];
 const SCREAM_M = [B(C.inf, .8), B(C.inf, .8)], LURK_M = B(0xd6ad55, .8), FOCUS_M = B(C.cyan, 1);
@@ -274,7 +274,7 @@ function Ent(type){
     this.drop = sprite(SM.drop, .8, 2.45); this.root.add(this.drop); }
   const ic = {joel:SM.star, armoured:SM.shield, bloater:SM.burst, screamer:SM.waves}[type];
   if(ic){ this.icon = sprite(ic, type === "joel" ? 1.05 : 1.2, type === "bloater" ? 3.5 : type === "armoured" ? 3.2 : 2.7); this.root.add(this.icon); this.iconY = this.icon.position.y; }
-  if(type === "joel"){ this.reticle = new T.Mesh(G.plane, RETICLE_M); this.reticle.scale.set(3.6, 1, 3.6); this.reticle.position.y = .1; this.reticle.renderOrder = 4; this.root.add(this.reticle); }
+  if(type === "joel"){ this.reticle = new T.Mesh(G.plane, RETICLE_M); this.reticle.scale.set(3, 1, 3); this.reticle.position.y = .1; this.reticle.renderOrder = 4; this.root.add(this.reticle); }
   if(type === "runner"){ this.ghosts = new T.Group(); GHOST_M.forEach((gm, i) => { const gh = FIG.runner.clone(true); gh.traverse(o => { if(o.isMesh){ o.material = gm; o.renderOrder = 1; } });
       const lg = gh.getObjectByName("legL"), lr = gh.getObjectByName("legR"); lg.rotation.x = i % 2 ? .8 : -.8; lr.rotation.x = -lg.rotation.x;
       gh.position.set(0, 0, -.62 * (i + 1)); this.ghosts.add(gh); }); f.root.add(this.ghosts); }
@@ -572,16 +572,46 @@ View.prototype.draw = function(s){
   const showCiv = !m || m.objective === "reach"; this.civLabel.sprite.visible = showCiv; if(showCiv) this.civLabel.set(`CIVILIANS ${Math.ceil(bar)}%`, "#8dbb72");
   this.squadRing.visible = !!m; this.bubble.visible = false;
   if(m){
-    const R0 = s.rooms[m.squadRoom]; this.squadRing.position.set(R0.cx, 1, R0.cy);
+    const R0 = s.rooms[m.squadRoom];
+    // ui pass 6: the squad spreads into a readable formation. Render only: the sim's slots (30 apart) are pushed out from the
+    // group's centre so figures and cones don't sit on each other at phone scale. Offsets ease in and out, so nothing jumps.
+    const sq = m.units.filter(u => (u.status === "ACTIVE" || u.status === "INJURED") && u.room === m.squadRoom);
+    let gx = 0, gy = 0; sq.forEach(u => { gx += u.x; gy += u.y; }); if(sq.length){ gx /= sq.length; gy /= sq.length; } else { gx = R0.cx; gy = R0.cy; }
+    const k = clamp(us * 2.3 / 30, 1.15, 2.3), pad = us * 1.3, ease = Math.min(1, dt * 6); let spread = 0;
+    const off = this.off || (this.off = new WeakMap());
+    // targets: the formation in the squad's room; everyone else (on the move, queued at a door) where the sim has them
+    const tg = m.units.filter(u => u.status !== "DEAD").map(u => {
+      const mov = u.status === "ACTIVE" || u.status === "INJURED";
+      if(sq.includes(u)) return {u, mov, x:gx + (u.x - gx) * k, y:gy + (u.y - gy) * k};
+      return {u, mov, x:u.x, y:u.y};
+    });
+    // then nobody stands inside anyone else: a few passes of pairwise push in the same room (a queue at a door fans out)
+    const minD = us * 1.8;
+    for(let it = 0; it < 4; it++) for(let i = 0; i < tg.length; i++) for(let j = i + 1; j < tg.length; j++){
+      const a = tg[i], b = tg[j]; if(a.u.room !== b.u.room || (!a.mov && !b.mov)) continue;
+      let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      if(d >= minD) continue;
+      if(d < .01){ const ang = i * 2.39 + j * 1.31; dx = Math.cos(ang); dy = Math.sin(ang); d = 1; } else { dx /= d; dy /= d; }
+      const p = minD - Math.min(d, minD), wa = !a.mov ? 0 : !b.mov ? 1 : .5, wb = 1 - wa;
+      a.x -= dx * p * wa; a.y -= dy * p * wa; b.x += dx * p * wb; b.y += dy * p * wb;
+    }
+    tg.forEach(t => { const r = s.rooms[t.u.room], pd = t.u.room === m.squadRoom ? pad : us * .8; t.x = clamp(t.x, r.x + pd, r.x + r.w - pd); t.y = clamp(t.y, r.y + pd, r.y + r.h - pd);
+      if(sq.includes(t.u)) spread = Math.max(spread, Math.hypot(t.x - gx, t.y - gy)); });
+    m.units.forEach(u => {
+      let o = off.get(u); if(!o){ o = {x:0, y:0}; off.set(u, o); }
+      const t = tg.find(q => q.u === u), tx = t && t.mov ? t.x - u.x : 0, ty = t && t.mov ? t.y - u.y : 0;
+      o.x += (tx - o.x) * ease; o.y += (ty - o.y) * ease;
+    });
+    this.squadRing.position.set(gx, 1, gy); this.squadRing.scale.setScalar(Math.max(48, spread + us * 1.6));
     // aim: the freshest shot from each unit
     m.units.forEach(u => {
       if(u.status === "DEAD"){ this.skull(u); return; }
       const e = this.ent(u, UNIT_TYPE(u)); let aim = null;
       for(let i = m.shots.length - 1; i >= 0; i--){ const sh = m.shots[i]; if(Math.abs(sh.x1 - u.x) < 3 && Math.abs(sh.y1 - u.y) < 3){ aim = Math.atan2(sh.x2 - sh.x1, sh.y2 - sh.y1); break; } }
-      const mv = this.place(e, u, now, dt, aim); e.setDown(u.status === "DOWN"); e.root.scale.setScalar(us);
+      const o = off.get(u), mv = this.place(e, {x:u.x + o.x, y:u.y + o.y}, now, dt, aim); e.setDown(u.status === "DOWN"); e.root.scale.setScalar(us);
       if(e.down){ const sc = 1.4 + pulse * 1.6; e.pulse.scale.setScalar(sc); }
       e.drop.visible = u.status === "INJURED"; e.focus.visible = false;
-      if(e.reticle){ e.reticle.rotation.y = REDUCE ? 0 : t * .6; const rs = REDUCE ? 3.6 : 3.6 + Math.sin(t * 3) * .14; e.reticle.scale.set(rs, 1, rs); }
+      if(e.reticle){ e.reticle.rotation.y = REDUCE ? 0 : t * .6; const rs = REDUCE ? 3 : 3 + Math.sin(t * 3) * .12; e.reticle.scale.set(rs, 1, rs); }
       if(e.icon) e.icon.position.y = e.iconY + (REDUCE ? 0 : Math.sin(t * 2 + e.ph) * .06);
       animate(e, t, mv, false);
     });
@@ -600,7 +630,8 @@ View.prototype.draw = function(s){
     });
     // crisis bubble over who it is about
     const c = m.crises[0];
-    if(c){ const who = c.unit || c.z || (c.kind === "barricade" ? {x:1000, y:110} : m.units.find(u => u.id === "joel") || m.units[0]);
+    if(c){ const who0 = c.unit || c.z || (c.kind === "barricade" ? {x:1000, y:110} : m.units.find(u => u.id === "joel") || m.units[0]);
+      const wo = who0 && off.get(who0), who = wo ? {x:who0.x + wo.x, y:who0.y + wo.y} : who0;
       if(who){ this.bubble.visible = true; const hy = 3.4 * us + (REDUCE ? 0 : Math.abs(Math.sin(t * 3)) * .25 * us); this.bubble.position.set(who.x, hy, who.y); this.bubble.scale.set(2.4 * us, 2.4 * us, 1); } }
   }
   this.live.forEach((e, obj) => { if(e.frame !== this.frame) this.drop(obj, e); });
@@ -608,7 +639,8 @@ View.prototype.draw = function(s){
   // shots
   let ti = 0;
   if(m) for(let i = 0; i < m.shots.length && ti < this.tracers.length; i++){ const sh = m.shots[i], tr = this.tracers[ti++];
-    const a = this.tv.set(sh.x1, us * 1.05, sh.y1), b = this.tv2.set(sh.x2, us * .9, sh.y2); const L = a.distanceTo(b);
+    const su = m.units.find(u => Math.abs(sh.x1 - u.x) < 3 && Math.abs(sh.y1 - u.y) < 3), so = su && this.off && this.off.get(su);
+    const a = this.tv.set(sh.x1 + (so ? so.x : 0), us * 1.05, sh.y1 + (so ? so.y : 0)), b = this.tv2.set(sh.x2, us * .9, sh.y2); const L = a.distanceTo(b);
     tr.scale.set(1.6, 1.6, L); tr.position.copy(a).lerp(b, .5); tr.lookAt(b); tr.visible = true; tr.material.opacity = Math.min(1, sh.t * 8) * (sh.miss ? .35 : .95); }
   for(; ti < this.tracers.length; ti++) this.tracers[ti].visible = false;
   // blasts

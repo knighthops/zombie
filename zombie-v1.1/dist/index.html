@@ -15,8 +15,7 @@
   <meta name="description" content="Zombie v1.1 — an interactive survival command drama prototype.">
   <title>Zombie v1.1</title>
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=4.0">
-  <style>/* slice 4.1 */#deploy-btn.tired-warn{background:var(--amber);color:#140e02}#f-squad.warn{color:var(--amber)}.street-line{margin:2px 0 6px}</style>
+  <link rel="stylesheet" href="./styles.css?v=4.2">
 </head>
 <body>
   <main id="app">
@@ -155,6 +154,7 @@
           <canvas id="battlefield" width="1100" height="680" aria-label="Live top-down mission simulation"></canvas>
           <div class="scanlines"></div>
           <div class="log-ticker" id="log-ticker" aria-hidden="true"></div>
+          <button class="pause-banner" id="pause-banner" hidden><small id="pause-why">PAUSED</small><strong id="pause-go">▶ RESUME 1×</strong></button>
           <div class="combat-hud">
             <div class="squad-status" id="squad-status"></div>
             <div class="hud-bottom">
@@ -175,7 +175,7 @@
 
           <div class="log-stream" id="log-stream" aria-live="polite"></div>
           <div class="bandwidth"><div><span>COMMAND</span><strong id="command-points">● ● ●</strong></div><div class="bandwidth-line"><span id="bandwidth-fill"></span></div><div class="sub"><span id="cp-regen-label">REGEN</span></div>
-            <div class="noise-row"><span>NOISE</span><strong id="noise-value">0</strong></div><div class="noise-line"><span id="noise-fill"></span><i style="left:30%"></i><i style="left:60%"></i><i style="left:90%"></i></div>
+            <div class="noise-row"><span>NOISE</span><strong id="noise-value">0</strong></div><div class="noise-line"><span id="noise-fill"></span><i style="left:30%" data-n="30"></i><i style="left:60%" data-n="60"></i><i style="left:90%" data-n="90"></i></div>
             <div class="stock-row"><span>AMMO <strong id="ammo-value">0</strong></span><span>MEDS <strong id="meds-value">0</strong></span></div></div>
         </aside>
       </div>
@@ -193,7 +193,7 @@
     </section>
   </main>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="./battle3d.js?v=4.0"></script>
-  <script src="./app.js?v=4.1"></script>
+  <script src="./battle3d.js?v=4.2"></script>
+  <script src="./app.js?v=4.2"></script>
 </body>
 </html>
