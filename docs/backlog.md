@@ -22,3 +22,23 @@ Replace the plain room boxes and dots with a three.js top-down view. Reference: 
 (desaturated ruined interior, strongly colour-coded units: green = humans, red = infected, purple = specials,
 skull markers for deaths, a red ring for a downed or bleeding unit, speech bubble for a crisis, a selection reticle).
 Mock first and wait for the user's approval.
+
+---
+# Backlog from TESTER v4.2 (8/10, visual 8/10): next session
+
+The v3.3 items above are done in slice 4.1 and UI pass 6.
+
+## DESIGNER
+1. Soft-lock: "No one left · retreat" (everyone carried or 0 rds) idles forever. Auto-end it or prompt.
+2. Cold Storage cascade: 4 of 5 attempts saved 0. Each Carry removes a gun. Soften it, or bring recruits in sooner.
+3. The Long Night is now too safe when prepped. Add pressure when ammo is high, e.g. a second wave.
+4. Aggressive is suicide (153 rds and 4 down in about 3 min). Give it a real upside, e.g. a faster rescue.
+5. Scavenge with the Safe house is too kind (clean 6 of 8).
+6. Check the barricade number: it went 40 → 55 after a "−15" rest.
+
+## UI
+1. Draw a carried trooper on the carrier (they vanish now).
+2. Civilians read as a crystal cluster. Make them read as people.
+3. Greyed Drag/Patch options should say why ("no command", "no one free").
+4. Show the tired ask for 2+ tired.
+5. "Take all 6 · No guns left" is a trap. Make the warning clearer.
