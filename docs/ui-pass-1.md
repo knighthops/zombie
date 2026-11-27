@@ -55,3 +55,64 @@ Phone first (390x844), then desktop (1440x900). No game rules or numbers changed
 4. **No day transition.** Rest and Scavenge re-render the page in place. The only feedback is the report line. A short "Day 13" beat would make the day choice feel weighty.
 5. **A downed Joel stops command regen.** The chip says DOWN, but nothing on the HUD says "no regen". The text only shows in the desktop log panel, and that row is hidden on a phone.
 6. **Story copy says "six people"** and the roster is 6 including Joel. Check this is intended.
+
+# UI pass 2: landscape (2026-11-27)
+
+The request: the phone should always play sideways so it uses the whole screen, and the text was too small. No game rules or numbers changed. Files: `index.html` (crisis seconds, log ticker), `styles.css` (new blocks at the end, "ui pass 2"), `app.js` (`fitView`, `toMap`, `doorReach`, `draw` scale), `manifest.webmanifest`.
+
+## How the landscape is forced
+- `manifest.webmanifest` says `"orientation": "landscape"`, and `screen.orientation.lock("landscape")` is tried on load and on the first tap, inside try/catch. iOS ignores both, so:
+- `fitView()` measures the visible size (`visualViewport` × scale, which follows the iOS toolbars; `innerWidth` can grow when a page lays out too wide). A phone is any screen with a short side ≤ 500 and a long side ≤ 1000.
+  - Phone held sideways: `html.land`. `#app` is fixed to the measured size.
+  - Phone held upright: `html.land.rot`. `#app` is sized to the swapped size and turned with `translateX(screen width) rotate(90deg)` from its top-left corner. The game reads correctly when the phone is turned counter-clockwise (top to the left).
+  - It refits on resize, orientationchange (also 250 and 700 ms later, since iOS reports late) and visualViewport resize.
+- Safe areas use `--sat/--sar/--sab/--sal`. In the turned mode they are remapped: the app's left edge is the notch (`safe-area-inset-top`), its right edge is the home bar (`-bottom`).
+- In land mode the page never scrolls. A screen, or a panel inside it, scrolls instead, because a page scroll would run the wrong way when turned. `show()` resets those scroll positions.
+- The old phone-portrait rules (`max-width:760px`) now apply only to narrow windows that are not phones (for example a 568px desktop pane), so they no longer fight the landscape layout.
+
+## Input through the rotation
+- `toMap()` takes the pointer and the canvas box back into the app's own frame before the letterbox math: app x = screen y, and app y = screen width − screen x. The box is rebuilt from `getBoundingClientRect` the same way. Buttons need nothing, because the browser hit-tests transformed elements itself. There is no drag in the game.
+- Doors: a tap now takes the nearest door within `clamp(40/scale, 80, 120)` map units, about an 80px circle on a phone. Doors are at least 160 units apart. While Seal is armed, every door shows a pulsing ring of that size.
+
+## Phone landscape layout (844x390, checked at 667x375 and 932x430)
+- **Combat:** the map fills the left, height-limited. The rail width is whatever the map can't use, between 236 and 330px.
+  - Right rail: the objective (2 lines), squad chips (3×2, with a 3px HP bar), the command pips with regen, noise "26 / 30" at 18px, ammo and meds, and the three stances in one row.
+  - The orders strip under the map is 60px tall: Advance, Seal, Focus, Medkit, Retreat, plus Fire at will as its own cell. The speed controls are under the rail.
+  - Arming Advance or Seal swaps the lower rail for the pick buttons.
+  - The log is hidden. The latest line shows for 5s as a ticker at the top of the map.
+  - A crisis covers only the map. Orders, stances and Retreat stay in view.
+- **Ops:** the map sits on the left and stays put. The brief, the day actions and the chapter list scroll on the right.
+- **Prep / roster:** two panels that scroll on their own. Deploy is pinned to the bottom of the right one.
+- **Story:** a two-column journal that scrolls about 160px to reach the button at 375 tall.
+- **Results / end:** one scrolling card with a 4-up stat row and casualties in two columns. The button is pinned at the bottom.
+- An automated check on every screen at 667x375 and 844x390 found no text under 13px, no button under 44px and no sideways overflow. Body text is 15–17px. The canvas labels scale to about 12–13px on screen, and the markers about 1.7×. The backing store follows devicePixelRatio, so the map is sharp.
+
+## Tester notes done
+- The triangulation caption sits top left on every size, away from HOME.
+- The crisis countdown is a 10–12px bar with a big seconds counter. Both turn orange in the last 4s.
+- Door targets are big, as above.
+
+## Verified (browser pane, Chrome emulation)
+- 390x844 (turned):
+  - Ops, prep, combat and results.
+  - A real click on a crisis option (David is down; Bloater closing).
+  - Seal by tapping the canvas: a real click 10px off the office/loading bay door sealed that door.
+  - Advance by tapping the Aisles room.
+- 844x390: the same taps (door 15px off centre, and a room), plus the pick bar.
+- 667x375 and 932x430: rail fit measured, with no overlap. All screens audited at 667x375.
+- The end screen at 844x390.
+- 1440x900: desktop combat, with seal and advance taps through the unchanged desktop path. A narrow 568px pane gets the old portrait layout, not turned.
+- Console: no errors apart from the 404 from loading the wrong path first.
+
+## Not verified
+- A real iPhone. Still to check there:
+  - whether iOS hands touch scrolling correctly to the turned panels;
+  - the safe-area remap with a real notch;
+  - Safari's toolbar in the browser, not standalone, while turned;
+  - the status bar, which will sit sideways along the app's left edge when the phone is upright.
+- The pane's screenshots cropped the emulated view at times, so some checks were measured with JS, not seen.
+- On the 844x390 real-landscape iPhone (bottom inset 21px), the rail has about 1px to spare. A two-line objective plus long chips is the edge case.
+
+## Notes for DESIGNER
+1. On a phone the squad markers still stack into a blob (ui-pass-1 note 2). The map is bigger now, but the slot spacing is a sim change.
+2. When a chip is narrow, the status after "· " (ESCORT, CARRYING) can be cut off. Consider a shorter status word or an icon.

@@ -151,6 +151,7 @@
         <div class="battlefield-wrap">
           <canvas id="battlefield" width="1100" height="680" aria-label="Live top-down mission simulation"></canvas>
           <div class="scanlines"></div>
+          <div class="log-ticker" id="log-ticker" aria-hidden="true"></div>
           <div class="combat-hud">
             <div class="squad-status" id="squad-status"></div>
             <div class="hud-bottom">
@@ -176,7 +177,7 @@
         </aside>
       </div>
       <div class="crisis-overlay" id="crisis-overlay" role="dialog" aria-modal="true" aria-labelledby="crisis-title">
-        <div class="crisis-card"><p class="eyebrow alert">COMMAND WINDOW</p><h2 id="crisis-title">A trooper is down</h2><p id="crisis-copy">The team is exposed. You have seconds to decide.</p><div class="crisis-timer"><span id="crisis-timer-fill"></span></div><div class="crisis-actions" id="crisis-actions"></div><p class="crisis-queue" id="crisis-queue"></p></div>
+        <div class="crisis-card"><p class="eyebrow alert crisis-head"><span>COMMAND WINDOW</span><strong class="crisis-secs" id="crisis-secs"></strong></p><h2 id="crisis-title">A trooper is down</h2><p id="crisis-copy">The team is exposed. You have seconds to decide.</p><div class="crisis-timer"><span id="crisis-timer-fill"></span></div><div class="crisis-actions" id="crisis-actions"></div><p class="crisis-queue" id="crisis-queue"></p></div>
       </div>
     </section>
 

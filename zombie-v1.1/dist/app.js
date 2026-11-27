@@ -124,7 +124,28 @@
   const state = {screen:"story-screen", recon:false, route:"vehicle", stance:"controlled", selected:new Set(), speed:1, paused:false, carryAmmo:150, carryMeds:2, confirmWipe:false};
   let m = null, crisisSeq = 0;
 
-  function show(id){ screens.forEach(s => s.classList.toggle("active", s.id === id)); state.screen = id; document.body.classList.toggle("in-mission", id === "combat-screen"); window.scrollTo(0, 0); }
+  // ---------- ui pass 2: a phone always plays in landscape ----------
+  // iOS ignores orientation locks, so a phone held upright gets the whole app turned 90° in CSS (html.rot), and a phone held
+  // sideways shows it unturned. Both use the landscape layout (html.land). The measured size follows the iOS toolbars; 100vh does not.
+  const view = {land:false, rot:false, sw:innerWidth, sh:innerHeight, ready:false};
+  function fitView(){
+    // visualViewport × scale: the visible size at scale 1. innerWidth can grow when a page lays out wider than the screen.
+    const vv = window.visualViewport, w = Math.round(vv ? vv.width * vv.scale : document.documentElement.clientWidth), h = Math.round(vv ? vv.height * vv.scale : innerHeight), land = Math.min(w, h) <= 500 && Math.max(w, h) <= 1000, rot = land && h > w;
+    const R = document.documentElement, was = `${view.land}${view.rot}${view.sw}x${view.sh}`;
+    Object.assign(view, {land, rot, sw:w, sh:h});
+    R.classList.toggle("land", land); R.classList.toggle("rot", rot);
+    R.style.setProperty("--app-w", `${rot ? h : w}px`); R.style.setProperty("--app-h", `${rot ? w : h}px`); R.style.setProperty("--scr-w", `${w}px`);
+    if(view.ready && was !== `${land}${rot}${w}x${h}`){ draw(); if(m) renderCrisis(); }
+  }
+  function lockLandscape(){ try { const o = screen.orientation; if(o && o.lock) o.lock("landscape").catch(() => {}); } catch(e) {} }
+  fitView(); lockLandscape();
+  addEventListener("resize", fitView);
+  addEventListener("orientationchange", () => { fitView(); setTimeout(fitView, 250); setTimeout(fitView, 700); }); // iOS reports the new size late
+  if(window.visualViewport) visualViewport.addEventListener("resize", fitView);
+  document.addEventListener("pointerdown", lockLandscape, {once:true});
+
+  function show(id){ screens.forEach(s => s.classList.toggle("active", s.id === id)); state.screen = id; document.body.classList.toggle("in-mission", id === "combat-screen"); window.scrollTo(0, 0);
+    $$(".screen, .ops-layout, .roster-panel, .doctrine-panel, .brief-panel, .mission-panel").forEach(el => { el.scrollTop = 0; }); } // land mode scrolls inside panels, not the page
   function selectButtons(container, key, value){ $$(`button[data-${key}]`, container).forEach(b => b.classList.toggle("selected", b.dataset[key] === value)); }
 
   // ---------- ops map ----------
@@ -237,7 +258,7 @@
   function clearMission(){
     m = null; clearInterval(timer); timer = null; state.paused = false;
     DOORS.forEach(d => { d.sealed = 0; d.cd = 0; });
-    $("#log-stream").innerHTML = ""; $("#squad-status").innerHTML = ""; $("#objective-text").textContent = "";
+    $("#log-stream").innerHTML = ""; $("#log-ticker").textContent = ""; $("#log-ticker").className = "log-ticker"; $("#squad-status").innerHTML = ""; $("#objective-text").textContent = "";
     $("#pick-bar").hidden = true; $("#pick-bar").innerHTML = "";
     $("#crisis-overlay").classList.remove("open"); $("#crisis-actions").innerHTML = ""; $("#crisis-title").textContent = ""; $("#crisis-copy").textContent = ""; $("#crisis-queue").textContent = "";
     draw();
@@ -849,11 +870,11 @@
     if(!c){ ov.classList.remove("open"); return; }
     ov.classList.add("open");
     // phone: the card docks over the log only, so the map, stances and orders stay usable
-    if(matchMedia("(max-width:760px)").matches){ const lp = $(".battle-log-panel"), sc = $("#combat-screen"); ov.style.top = `${lp.getBoundingClientRect().top - sc.getBoundingClientRect().top}px`; }
+    if(!view.land && matchMedia("(max-width:760px)").matches){ const lp = $(".battle-log-panel"), sc = $("#combat-screen"); ov.style.top = `${lp.getBoundingClientRect().top - sc.getBoundingClientRect().top}px`; }
     else ov.style.top = "";
     const v = crisisView(c);
     $("#crisis-title").textContent = v.title; $("#crisis-copy").textContent = v.copy;
-    $("#crisis-timer-fill").style.width = `${Math.max(0, c.t / c.max) * 100}%`;
+    $("#crisis-timer-fill").style.width = `${Math.max(0, c.t / c.max) * 100}%`; $("#crisis-secs").textContent = `${Math.ceil(Math.max(0, c.t))}s`;
     $(".crisis-card").classList.toggle("urgent", c.t <= 4);
     const d = defaultOption(v), dl = d ? d.label.toLowerCase() : v.defaultLabel || "nothing changes";
     $("#crisis-queue").textContent = `Paused · no order in ${Math.ceil(Math.max(0, c.t))}s: ${dl}${m.crises.length > 1 ? ` · +${m.crises.length - 1} more waiting` : ""}`;
@@ -903,10 +924,17 @@
   };
   const canvas = $("#battlefield"), ctx = canvas.getContext("2d");
   const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // the pointer in map units. When the app is rotated (a portrait phone), getBoundingClientRect gives the turned box on screen,
+  // so both the pointer and the box go back into the app's own frame first: app x = screen y, app y = screen width - screen x.
   function toMap(e){
-    const r = canvas.getBoundingClientRect(), s = Math.min(r.width / W, r.height / H);
-    return {x:(e.clientX - r.left - (r.width - W * s) / 2) / s, y:(e.clientY - r.top - (r.height - H * s) / 2) / s};
+    const r = canvas.getBoundingClientRect();
+    let x = e.clientX, y = e.clientY, left = r.left, top = r.top, w = r.width, h = r.height;
+    if(view.rot){ x = e.clientY; y = view.sw - e.clientX; left = r.top; top = view.sw - r.right; w = r.height; h = r.width; }
+    const s = Math.min(w / W, h / H);
+    return {x:(x - left - (w - W * s) / 2) / s, y:(y - top - (h - H * s) / 2) / s, s};
   }
+  // ui pass 2: a big door target, about an 80px circle on a phone (doors sit at least 160 map units apart, and the nearest wins)
+  const doorReach = s => clamp(40 / s, 80, 120);
   function orderAdvance(r){
     if(r < 0 || r === m.squadRoom){ addLog("Pick a different room."); return; }
     if(!spend(1)) { m.arm = null; return; }
@@ -921,9 +949,8 @@
   }
   canvas.onclick = e => {
     if(!m || !m.arm || !m.running || m.crises.length) return; const p = toMap(e);
-    const rr = canvas.getBoundingClientRect(), s = Math.min(rr.width / W, rr.height / H);
     if(m.arm === "advance") orderAdvance(ROOMS.findIndex(R => p.x >= R.x && p.x <= R.x + R.w && p.y >= R.y && p.y <= R.y + R.h));
-    else orderSeal(DOORS.filter(d => dist(d, p) < Math.max(55, 30 / s)).sort((a, b) => dist(a, p) - dist(b, p))[0]); // at least a 60px tap circle on screen
+    else orderSeal(DOORS.filter(d => dist(d, p) < doorReach(p.s)).sort((a, b) => dist(a, p) - dist(b, p))[0]);
     renderHud();
   };
   // the same orders as buttons: big tap targets on a phone
@@ -1121,16 +1148,22 @@
     $("#meds-value").textContent = m.meds;
     $("#mission-clock").textContent = fmt(m.elapsed);
   }
-  function addLog(text, type = "normal"){ $("#log-stream").insertAdjacentHTML("afterbegin", `<div class="log-entry ${type}"><time>${fmt(m ? m.elapsed : 0)}</time><span>${text}</span></div>`); }
+  function addLog(text, type = "normal"){ $("#log-stream").insertAdjacentHTML("afterbegin", `<div class="log-entry ${type}"><time>${fmt(m ? m.elapsed : 0)}</time><span>${text}</span></div>`);
+    const t = $("#log-ticker"); t.innerHTML = text; t.className = "log-ticker"; void t.offsetWidth; t.className = `log-ticker show ${type}`; } // land: the latest line over the map
   // a short screen-edge flash that carries what happened: a trooper down, a wave, a blast, a door giving way
   function jolt(kind){ const w = $(".battlefield-wrap"); if(!w) return; w.classList.remove("jolt-down", "jolt-wave", "jolt-blast", "jolt-door"); void w.offsetWidth; w.classList.add("jolt-" + kind); }
   function burst(x, y, color){ for(let i = 0; i < 5; i++) m.particles.push({x, y, vx:(Math.random() - .5) * 80, vy:(Math.random() - .5) * 80, t:.35, color}); }
 
   // ---------- draw ----------
   function draw(){
+    // the backing store follows the drawn size and the screen density, so the map stays sharp on a phone; map units stay 1100 x 680
+    const cs = Math.min((canvas.clientWidth || W) / W, (canvas.clientHeight || H) / H) || 1, k = clamp(cs * (window.devicePixelRatio || 1), 1, 2.5);
+    if(Math.abs(canvas.width - Math.round(W * k)) > 2){ canvas.width = Math.round(W * k); canvas.height = Math.round(H * k); }
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     ctx.fillStyle = "#111916"; ctx.fillRect(0, 0, W, H);
-    // visual scale only: when the canvas is drawn small (a phone), labels and markers grow so they stay readable
-    const vs = clamp(W / (canvas.clientWidth || W) * .7, 1, 2), ur = 10 * Math.min(1.3, vs), zr = Math.min(1.3, vs), px = n => `${Math.round(n * vs)}px monospace`;
+    // visual scale only: when the canvas is drawn small (a phone), labels and markers grow so they stay readable. Hit areas and sim are untouched.
+    const vs = view.land ? clamp(1.15 / cs, 1, 2.8) : clamp(.7 / cs, 1, 2), mk = view.land ? 1.7 : 1.3;
+    const ur = 10 * Math.min(mk, vs), zr = Math.min(mk, vs), px = n => `${Math.round(n * vs)}px monospace`;
     ctx.save(); ctx.lineWidth = 5;
     ROOMS.forEach((r, i) => {
       ctx.fillStyle = i % 2 ? "#17201d" : "#1b2421"; ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -1144,7 +1177,10 @@
       const vw = d.axis === "v", w = vw ? 26 : 44, h = vw ? 44 : 26;
       ctx.fillStyle = "#1e2a26"; ctx.fillRect(d.x - w / 2, d.y - h / 2, w, h);
       if(d.sealed > 0){ ctx.fillStyle = "#d6ad55"; ctx.fillRect(vw ? d.x - 4 : d.x - 22, vw ? d.y - 22 : d.y - 4, vw ? 8 : 44, vw ? 44 : 8); ctx.fillStyle = "#d6ad55"; ctx.font = "bold " + px(10); ctx.fillText(Math.ceil(d.sealed) + "s", d.x + 8, d.y - 8); }
-      else if(m && m.arm === "seal"){ ctx.strokeStyle = "#61d4cf"; ctx.lineWidth = 2; ctx.strokeRect(d.x - w / 2, d.y - h / 2, w, h); }
+      else if(m && m.arm === "seal"){ ctx.strokeStyle = "#61d4cf"; ctx.lineWidth = 2; ctx.strokeRect(d.x - w / 2, d.y - h / 2, w, h);
+        // the tap target, drawn: a pulsing ring close to what a tap accepts
+        const p = RM ? .5 : (Math.sin(performance.now() / 220) + 1) / 2; ctx.strokeStyle = `rgba(97,212,207,${.35 + p * .35})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(d.x, d.y, doorReach(cs) * .8, 0, Math.PI * 2); ctx.fillStyle = "rgba(97,212,207,.08)"; ctx.fill(); ctx.stroke(); }
     });
     ctx.fillStyle = "#8dbb72"; ctx.fillRect(27, 438, 10, 44); ctx.font = "bold " + px(10); ctx.fillText("ENTRY", 44, 620);
     EDGES.forEach(e => { ctx.fillStyle = "#5d211d"; const r = ROOMS[e.room]; if(e.room === 0) ctx.fillRect(e.x - 22, r.y - 6, 44, 8); else ctx.fillRect(r.x + r.w - 2, e.y - 22, 8, 44); });
@@ -1190,6 +1226,6 @@
       execute:() => ({screen:state.screen, day:camp.day, civiliansTrapped:cur().civilians, building:B.title, ammo:camp.ammo, meds:camp.meds,
         mission:m ? {elapsed:Math.floor(m.elapsed), kills:m.kills, commandPoints:m.cp, noise:Math.round(m.noise), objective:m.objective, team:m.units.map(u => ({name:u.name, status:u.status, hp:Math.max(0, Math.round(u.hp))}))} : null})})).catch(() => {});
   }
-  window.ZB = {get m(){ return m; }, get camp(){ return camp; }, state};
-  renderOps(); registerWebTools(); draw();
+  window.ZB = {get m(){ return m; }, get camp(){ return camp; }, state, view, toMap};
+  renderOps(); registerWebTools(); view.ready = true; draw();
 })();

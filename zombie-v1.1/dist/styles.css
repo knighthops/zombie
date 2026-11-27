@@ -18,7 +18,7 @@
 .result-screen{background:radial-gradient(circle at 50% 0,#1c302a,#07100f 60%);padding:55px 20px}.result-card{max-width:880px;margin:auto;border:1px solid var(--line);background:#0c1513;padding:42px;box-shadow:var(--shadow)}.result-card h1{font:52px Georgia,serif;margin:0 0 12px}.result-summary{font-size:18px;color:#aab9b3;max-width:650px;line-height:1.6}.result-grid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);margin:30px 0}.result-grid div{padding:18px;border-right:1px solid var(--line)}.result-grid div:last-child{border:0}.result-grid span,.result-grid strong{display:block}.result-grid span{font:9px ui-monospace,monospace;color:var(--muted)}.result-grid strong{font-size:24px;margin-top:5px}.casualty-list{margin:20px 0 30px}.casualty-row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:13px 4px}.casualty-row span:last-child{color:var(--muted)}.result-card .secondary{margin-left:8px}
 @keyframes beacon{50%{box-shadow:0 0 0 14px #ff493d11,0 0 42px #ff493d77}}@keyframes blink{50%{opacity:.5}}
 @media(max-width:1050px){.ops-layout{grid-template-columns:230px 1fr}.brief-panel{position:absolute;right:16px;top:90px;width:350px;max-height:calc(100vh - 110px);z-index:4;box-shadow:var(--shadow)}.mission-panel{padding:24px 18px}.prep-layout{grid-template-columns:1fr}.doctrine-panel{border-left:0;border-top:1px solid var(--line)}.combat-layout{grid-template-columns:1fr 310px}.command-bar button{min-width:80px}.unit-chip{min-width:68px}}
-@media(max-width:760px){.journal{padding:20px 24px;clip-path:none}.journal:before{display:none}.journal-grid{grid-template-columns:1fr;gap:30px;padding:35px 5px}.story-note{display:none}.topbar{grid-template-columns:1fr auto;padding:0 14px}.topbar nav{display:none}.clock{grid-column:2}.ops-layout{display:block;height:auto;min-height:calc(100vh - 72px)}.mission-panel{display:none}.map-wrap{height:58vh;min-height:420px}.brief-panel{position:relative;inset:auto;width:auto;max-height:none}.prep-layout{display:block}.roster-panel,.doctrine-panel{padding:24px 16px}.squad-list{grid-template-columns:1fr}.mode-cards{grid-template-columns:1fr}.mode-cards button{min-height:78px}.combat-screen{height:auto;overflow:auto}.combat-top{grid-template-columns:1fr auto;height:72px}.mission-stat{display:none}.combat-layout{display:block;height:auto}.battlefield-wrap{height:62vh;min-height:460px}.battle-log-panel{height:38vh;min-height:320px}.command-bar{width:calc(100% - 14px);bottom:8px}.command-bar button{min-width:0;flex:1;padding:4px;font-size:9px}.crisis-actions{grid-template-columns:1fr}.crisis-actions button{min-height:70px}.result-card{padding:28px 20px}.result-grid{grid-template-columns:1fr 1fr}.result-grid div{border-bottom:1px solid var(--line)}.result-card h1{font-size:40px}}
+@media (min-width:501px) and (max-width:760px) and (min-height:501px),(max-width:500px) and (min-height:1001px){.journal{padding:20px 24px;clip-path:none}.journal:before{display:none}.journal-grid{grid-template-columns:1fr;gap:30px;padding:35px 5px}.story-note{display:none}.topbar{grid-template-columns:1fr auto;padding:0 14px}.topbar nav{display:none}.clock{grid-column:2}.ops-layout{display:block;height:auto;min-height:calc(100vh - 72px)}.mission-panel{display:none}.map-wrap{height:58vh;min-height:420px}.brief-panel{position:relative;inset:auto;width:auto;max-height:none}.prep-layout{display:block}.roster-panel,.doctrine-panel{padding:24px 16px}.squad-list{grid-template-columns:1fr}.mode-cards{grid-template-columns:1fr}.mode-cards button{min-height:78px}.combat-screen{height:auto;overflow:auto}.combat-top{grid-template-columns:1fr auto;height:72px}.mission-stat{display:none}.combat-layout{display:block;height:auto}.battlefield-wrap{height:62vh;min-height:460px}.battle-log-panel{height:38vh;min-height:320px}.command-bar{width:calc(100% - 14px);bottom:8px}.command-bar button{min-width:0;flex:1;padding:4px;font-size:9px}.crisis-actions{grid-template-columns:1fr}.crisis-actions button{min-height:70px}.result-card{padding:28px 20px}.result-grid{grid-template-columns:1fr 1fr}.result-grid div{border-bottom:1px solid var(--line)}.result-card h1{font-size:40px}}
 
 /* slice 1 */
 .squad-status{right:18px;flex-wrap:wrap}.unit-chip{min-width:0;flex:0 1 auto}.unit-chip.injured{border-color:var(--amber);opacity:.75}.unit-chip.tired small:after{content:" · TIRED";color:var(--amber)}
@@ -34,7 +34,7 @@
 .mission-node.resolved{animation:none;background:#14231f;border-color:var(--green)}button:disabled{cursor:not-allowed}.primary:disabled{opacity:.45;filter:none}
 .result-base{color:var(--muted);font-size:13px;margin:0 0 24px}.casualty-row.is-dead span:last-child{color:var(--red)}
 @media(max-width:1050px){.stance-bar button{padding:7px 8px}}
-@media(max-width:760px){.hud-bottom{width:calc(100% - 14px);bottom:8px}.hud-bottom .command-bar{width:100%}.crisis-overlay{justify-content:center;padding:20px 10px 0}}.combat-layout{grid-template-rows:minmax(0,1fr)}.battle-log-panel{min-height:0}.log-stream{min-height:0}
+@media (min-width:501px) and (max-width:760px) and (min-height:501px),(max-width:500px) and (min-height:1001px){.hud-bottom{width:calc(100% - 14px);bottom:8px}.hud-bottom .command-bar{width:100%}.crisis-overlay{justify-content:center;padding:20px 10px 0}}.combat-layout{grid-template-rows:minmax(0,1fr)}.battle-log-panel{min-height:0}.log-stream{min-height:0}
 
 /* slice 2 */
 button,canvas{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -45,7 +45,7 @@ button,canvas{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .pick-bar button{min-height:44px;padding:0 12px;background:#101b19;border:1px solid var(--line);font:700 10px ui-monospace,monospace;letter-spacing:.06em;color:var(--ink)}
 .pick-bar button:hover{border-color:var(--cyan)}
 .combat-name{min-width:0}.combat-name .eyebrow,.combat-name h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:760px){
+@media (min-width:501px) and (max-width:760px) and (min-height:501px),(max-width:500px) and (min-height:1001px){
   .topbar{grid-template-columns:auto 1fr auto;gap:6px;height:56px;padding:0 12px;padding-top:env(safe-area-inset-top)}
   .topbar nav{display:flex;justify-content:center}
   .topbar nav button{padding:0 10px;min-width:44px;font-size:12px}
@@ -150,7 +150,7 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .trooper-card.selected{box-shadow:inset 3px 0 var(--green)}
 .result-card h1{line-height:1.05}
 
-@media(max-width:760px){
+@media (min-width:501px) and (max-width:760px) and (min-height:501px),(max-width:500px) and (min-height:1001px){
   .topbar{height:auto;min-height:calc(56px + env(safe-area-inset-top));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
   .topbar nav button{min-height:44px}
   .map-caption{top:12px;bottom:auto;left:14px}
@@ -186,17 +186,200 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .primary:disabled{opacity:1;background:#141c1a;color:var(--amber);border:1px dashed #6b5a32;filter:none}
 .secondary:disabled,.segmented button:disabled{opacity:.4}
 .brief-report{display:none}
-@media(max-width:760px){
+@media (min-width:501px) and (max-width:760px) and (min-height:501px),(max-width:500px) and (min-height:1001px){
   .brief-report:not([hidden]){display:block;margin:0 0 18px;padding:10px 12px;background:#14120c;font-size:13px}
   .mission-panel .ops-report{display:none}
 }
 .casualty-row.is-hurt span:last-child{color:var(--amber)}
 .casualty-row.is-dead strong{text-decoration:line-through;text-decoration-color:#ff493d88;color:#9aa8a2}
 .trooper-card .level{color:var(--green)}
-@media(max-width:760px){.crisis-overlay{background:#090f0e}}
+@media (min-width:501px) and (max-width:760px) and (min-height:501px),(max-width:500px) and (min-height:1001px){.crisis-overlay{background:#090f0e}}
 /* result tone by outcome */
 .result-card{border-top:3px solid var(--line)}
 .result-card.outcome-success{border-top-color:var(--green)}
 .result-card.outcome-retreat,.result-card.ending-chapter{border-top-color:var(--amber)}.result-card.outcome-retreat .eyebrow,.result-card.ending-chapter .eyebrow{color:var(--amber)}
 .result-card.outcome-failure,.result-card.ending-wiped{border-top-color:var(--red);box-shadow:var(--shadow),0 -30px 80px -40px #ff493d55}.result-card.outcome-failure .eyebrow,.result-card.ending-wiped .eyebrow{color:var(--red)}
 .result-screen:has(.ending-wiped),.result-screen:has(.outcome-failure){background:radial-gradient(circle at 50% 0,#341613,#07100f 60%)}
+
+/* ui pass 2, every size: tester notes */
+.map-caption{top:18px;bottom:auto;left:24px} /* off HOME, which sits bottom left */
+.crisis-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.crisis-secs{font:800 22px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink);letter-spacing:0}
+.crisis-card.urgent .crisis-secs{color:#ff7a3d}
+.crisis-timer{height:10px;background:#2a1513;border:1px solid #5d211d;margin:14px 0}
+.crisis-timer span{background:linear-gradient(90deg,#b4372d,var(--red))}
+.log-ticker{display:none}
+
+/* ui pass 2: a phone always plays in landscape (html.land). A phone held upright gets the app turned 90° (html.rot), see fitView in app.js */
+:root{--sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)}
+/* turned app: its left edge is the screen top (the notch), its right edge the home bar, its top the screen's right side */
+html.rot{--sat:env(safe-area-inset-right,0px);--sar:env(safe-area-inset-bottom,0px);--sab:env(safe-area-inset-left,0px);--sal:env(safe-area-inset-top,0px)}
+html.land,html.land body{height:100%;min-height:0;overflow:hidden;overscroll-behavior:none}
+html.land #app{position:fixed;top:0;left:0;width:var(--app-w,100vw);height:var(--app-h,100vh);min-height:0;overflow:hidden}
+html.rot #app{transform-origin:0 0;transform:translateX(var(--scr-w)) rotate(90deg)}
+/* the rail takes what the map can't use: the map's height (minus the 60px orders strip) sets its width at 1100:680 */
+html.land{--rail:clamp(236px,calc(var(--app-w) - var(--sal) - var(--sar) - (var(--app-h) - var(--sat) - var(--sab) - 61px) * 1.6176),330px);--bar-h:calc(50px + var(--sat))}
+html.land .screen{min-height:0;height:100%}
+html.land .screen.active{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+html.land .eyebrow{font-size:13px}
+html.land .primary,html.land .secondary{min-height:50px;font-size:15px}
+html.land .secondary small{font-size:13px}
+
+/* story */
+html.land .story-screen{padding:calc(10px + var(--sat)) calc(16px + var(--sar)) calc(14px + var(--sab)) calc(16px + var(--sal))}
+html.land .case-label{font-size:13px;margin:0 0 8px 6px}
+html.land .journal{min-height:0;padding:14px 26px 20px;clip-path:none}
+html.land .journal:before{display:none}
+html.land .journal-head{font-size:13px;padding-bottom:10px}
+html.land .journal-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px;padding:16px 4px 4px}
+html.land .story-copy h1{font-size:36px;margin-bottom:14px}
+html.land .story-copy>p:not(.eyebrow){font-size:17px;line-height:1.55;margin:0 0 12px}
+html.land .story-copy blockquote{font-size:18px;margin:14px 0;padding:10px 16px}
+html.land .story-note{display:flex;gap:16px}
+html.land .polaroid{padding:10px 10px 14px}
+html.land .rain-scene{height:150px}
+html.land .polaroid p{font-size:13px;margin-top:10px}
+html.land .hand-note{font-size:17px}
+html.land #open-ops{min-height:52px}
+
+/* shared top bar */
+html.land .topbar{display:grid;grid-template-columns:auto 1fr auto;gap:12px;height:var(--bar-h);min-height:0;padding:var(--sat) calc(14px + var(--sar)) 0 calc(14px + var(--sal));flex:none}
+html.land .topbar nav{display:flex;justify-content:center;align-self:stretch}
+html.land .topbar nav button,html.land .back-btn{min-height:44px;min-width:44px;padding:0 16px;font-size:15px}
+html.land .back-btn{align-self:stretch}
+html.land .topbar nav span{font-size:13px}
+html.land .brand{align-items:center;font-size:15px}
+html.land .brand small{display:inline;font-size:13px}
+html.land .clock{grid-column:auto}
+html.land .clock span{font-size:13px}html.land .clock strong{font-size:17px}
+
+/* ops: the map holds still on the left, the brief and the chapter scroll on the right */
+html.land .ops-screen.active,html.land .prep-screen.active{display:flex;flex-direction:column;overflow:hidden}
+html.land .ops-layout{flex:1;min-height:0;height:auto;display:grid;grid-template-columns:minmax(0,46%) minmax(0,1fr);grid-template-rows:auto auto;align-items:start;overflow-y:auto;overscroll-behavior:contain}
+html.land .map-wrap{grid-column:1;grid-row:1/span 2;position:sticky;top:0;height:calc(var(--app-h) - var(--bar-h));min-height:0;order:0}
+html.land .brief-panel{grid-column:2;grid-row:1;position:static;width:auto;max-height:none;box-shadow:none;overflow:visible;padding:16px calc(18px + var(--sar)) 18px 18px;border-left:1px solid var(--line);order:0}
+html.land .mission-panel{grid-column:2;grid-row:2;display:block;overflow:visible;border:0;border-left:1px solid var(--line);border-top:1px solid var(--line);padding:16px calc(18px + var(--sar)) calc(20px + var(--sab)) 18px;order:0}
+html.land .brief-panel h2,html.land .mission-panel h2{font-size:26px}
+html.land .brief-head,html.land .location{font-size:13px}
+html.land .brief-panel>p:not(.eyebrow,.location),html.land .muted{font-size:15px;line-height:1.5}
+html.land .intel-grid{margin:14px 0}
+html.land .intel-grid div{padding:9px 11px}
+html.land .intel-grid small{font-size:13px}html.land .intel-grid strong{font-size:16px}
+html.land .choice-block{margin:14px 0}
+html.land .choice-label,html.land .doctrine-panel label{font-size:13px}
+html.land .segmented button{min-height:52px;padding:8px 10px}
+html.land .segmented strong{font-size:14px}html.land .segmented small{font-size:13px}
+html.land .objective{padding:12px 0}
+html.land .objective>span{font-size:13px}html.land .objective strong{font-size:16px}html.land .objective small{font-size:15px}
+html.land .hub-card small{font-size:13px}html.land .hub-card strong{font-size:15px}
+html.land .brief-report:not([hidden]){display:block;margin:0 0 14px;padding:10px 12px;background:#14120c;font-size:15px}
+html.land .mission-panel .ops-report{display:none}
+html.land .new-campaign{min-height:48px;font-size:14px}
+html.land .map-node{width:62px;height:62px;box-shadow:0 0 0 6px #0a1211bb,0 0 30px #000}
+html.land .map-node span{font-size:22px}
+html.land .map-node small{top:68px;font-size:13px}
+html.land .route-token{font-size:13px}
+html.land .map-caption{top:12px;left:14px}
+html.land .map-caption span{font-size:13px}html.land .map-caption strong{font-size:14px}
+
+/* prep (also the roster): two panels that scroll on their own, Deploy pinned to the bottom of the right one */
+html.land .prep-layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+html.land .roster-panel,html.land .doctrine-panel{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:14px 16px calc(16px + var(--sab))}
+html.land .roster-panel{padding-left:calc(16px + var(--sal))}
+html.land .doctrine-panel{padding-right:calc(16px + var(--sar));padding-bottom:0;border-left:1px solid var(--line);border-top:0}
+html.land .section-title{margin-bottom:12px}
+html.land .section-title h2,html.land .doctrine-panel h2{font-size:26px}
+html.land .squad-list{grid-template-columns:1fr;gap:8px}
+html.land .trooper-card{grid-template-columns:44px minmax(0,1fr) auto;min-height:60px;padding:9px 12px;gap:10px}
+html.land .portrait{width:42px;height:42px;font-size:15px}
+html.land .trooper-card strong{font-size:16px}
+html.land .trooper-card small,html.land .trooper-card .level{font-size:13px}
+html.land .segmented.vertical{margin-bottom:14px}
+html.land .loadout{margin-bottom:14px}
+html.land .load-row{grid-template-columns:56px 44px 52px 44px 1fr;padding:6px 12px}
+html.land .load-row span,html.land .load-row small{font-size:13px}
+html.land .load-row button{height:44px;font-size:18px}html.land .load-row strong{font-size:18px}
+html.land .forecast{margin:12px 0}
+html.land .forecast div{padding:8px 12px;gap:10px}
+html.land .forecast span{font-size:13px;flex:none}html.land .forecast strong{font-size:14px;text-align:right}
+html.land #deploy-btn{position:sticky;bottom:calc(8px + var(--sab));margin:4px 0 calc(10px + var(--sab));min-height:54px;z-index:2;box-shadow:0 -14px 24px var(--panel),0 8px 20px #000a}
+
+/* combat: the map takes the width; squad, objective, command, noise, ammo and stances in a right rail; orders under the map, speed under the rail */
+html.land .combat-screen.active{display:grid;position:relative;overflow:hidden;height:100%;min-height:0;padding:var(--sat) var(--sar) var(--sab) var(--sal);
+  grid-template-columns:minmax(0,1fr) minmax(84px,auto) var(--rail);grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  grid-template-areas:"map map obj" "map map squad" "map map band" "map map stance" "cmd faw time";
+  background:linear-gradient(90deg,#151a18 0 calc(100% - var(--rail) - var(--sar)),#0a1110 0)}
+html.land .combat-top,html.land .combat-layout,html.land .battlefield-wrap,html.land .combat-hud,html.land .hud-bottom,html.land .battle-log-panel{display:contents}
+html.land .combat-name,html.land .log-head,html.land .log-stream{display:none}
+html.land #battlefield{grid-area:map;display:block;width:100%;height:100%;min-width:0;min-height:0;contain:size;object-fit:contain;aspect-ratio:auto}
+html.land .scanlines{grid-area:map;position:relative;inset:auto;height:auto;z-index:1}
+html.land .log-ticker{grid-area:map;align-self:start;justify-self:center;display:block;position:relative;z-index:2;max-width:calc(100% - 16px);margin-top:4px;padding:3px 10px;background:#07100ee0;border-left:2px solid var(--cyan);font-size:13px;line-height:1.3;color:#c4d0ca;pointer-events:none;opacity:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.land .log-ticker.show{animation:ticker 5s ease-out forwards}
+html.land .log-ticker.critical{border-left-color:var(--red);color:#ffd0cc}
+html.land .log-ticker.kill{border-left-color:var(--amber);color:#e6dca4}
+@keyframes ticker{0%,80%{opacity:1}100%{opacity:0}}
+html.land .mission-stat{grid-area:obj;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:left;padding:6px 10px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0;font-size:15px;line-height:1.25}
+html.land .mission-stat span{display:inline;font-size:13px;color:var(--cyan);letter-spacing:.08em;margin-right:6px}
+html.land .mission-stat strong{display:inline;font-size:15px;margin:0}
+html.land .squad-status{grid-area:squad;position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:6px 8px;border-left:1px solid var(--line);flex-wrap:nowrap}
+html.land .unit-chip{min-width:0;padding:3px 6px 5px;background-size:var(--hp,100%) 3px,auto}
+html.land .unit-chip strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.land .unit-chip small{font:600 13px/1.2 var(--sans);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#a3b3ad}
+html.land .bandwidth{grid-area:band;order:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;padding:5px 10px 6px;border-top:1px solid var(--line);border-left:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d1715}
+html.land .bandwidth>div:first-child{grid-column:1;display:flex;justify-content:flex-start;align-items:center;gap:8px;font-size:13px}
+html.land #command-points{font-size:20px;letter-spacing:.08em;line-height:1}
+html.land .bandwidth .sub{grid-column:2;grid-row:1;display:block;margin:0;font:600 13px var(--sans);letter-spacing:0;text-align:right}
+html.land .bandwidth .bandwidth-line{grid-column:1/-1;margin:0;height:4px}
+html.land .noise-row{grid-column:1/-1;margin-top:1px;font-size:13px;align-items:baseline;line-height:1.2}
+html.land .noise-row strong{font-size:18px}
+html.land .noise-line{grid-column:1/-1;margin:0;height:6px}
+html.land .stock-row{grid-column:1/-1;margin-top:2px;font-size:13px;justify-content:space-between;align-items:baseline;line-height:1.2}
+html.land .stock-row strong{font-size:16px}
+/* stances: one row of three in the rail; FIRE AT WILL joins the orders strip as its own cell */
+html.land .stance-bar{display:contents}
+html.land .stance-bar button,html.land .stance-bar button:last-child{grid-area:stance;align-self:end;width:calc((var(--rail) - 24px) / 3);min-height:46px;margin:0 8px 8px;padding:0 2px;border:1px solid var(--line);background:#101b19;font:700 13px/1.1 var(--sans);letter-spacing:0}
+html.land .stance-bar [data-stance=defensive]{justify-self:start}
+html.land .stance-bar [data-stance=controlled]{justify-self:center;margin:0 0 8px}
+html.land .stance-bar [data-stance=aggressive]{justify-self:end}
+html.land .stance-bar button.selected{background:var(--cyan);border-color:var(--cyan)}
+html.land .stance-bar .faw,html.land .stance-bar .faw:last-child{grid-area:faw;align-self:stretch;justify-self:stretch;min-height:60px;width:auto;max-width:104px;margin:0;padding:4px 8px;border:0;border-top:1px solid var(--line);border-left:1px solid var(--line);background:#07100e;color:var(--green);white-space:normal;font:800 13px/1.15 var(--sans)}
+html.land .stance-bar .faw.faw-off{color:var(--amber);background:#1a1608}
+html.land .pick-bar{grid-column:3;grid-row:3/5;z-index:4;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:4px;padding:4px 8px 6px;width:auto;max-width:none;background:#0b1513;border:0;border-left:1px solid var(--line);border-top:2px solid var(--cyan);overflow-y:auto}
+html.land .pick-bar[hidden]{display:none}
+html.land .pick-bar:before{content:"PICK, OR TAP THE MAP";grid-column:1/-1;font:700 13px var(--mono);letter-spacing:.06em;color:var(--cyan);padding:2px 0}
+html.land .pick-bar button{min-height:44px;padding:3px 6px;font:700 13px/1.15 var(--sans);letter-spacing:.02em;white-space:normal}
+html.land .command-bar{grid-area:cmd;position:static;transform:none;display:flex;width:auto;padding:0;background:#07100e;border:0;border-top:1px solid var(--line)}
+html.land .command-bar button{flex:1;min-width:0;height:60px;padding:4px 2px;font:800 13px/1.15 var(--sans);letter-spacing:.04em;border-right:1px solid var(--line)}
+html.land .command-bar button span{font-size:18px;line-height:1.1}
+html.land .command-bar button small{font:600 13px/1.2 var(--sans);letter-spacing:0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.land .time-controls{grid-area:time;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
+html.land .time-controls button{width:auto;height:60px;min-width:0;min-height:44px;font-size:17px;font-weight:800;border-top:0;border-bottom:0}
+html.land .crisis-overlay{grid-area:map;position:relative;inset:auto;padding:8px;z-index:6;background:#020605b8;pointer-events:auto;align-items:stretch;justify-content:stretch}
+html.land .crisis-overlay.open{display:flex}
+html.land .crisis-card{width:100%;max-width:none;height:100%;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;box-shadow:0 20px 60px #000}
+html.land .crisis-head{font-size:13px;margin:0 0 4px}
+html.land .crisis-secs{font-size:26px}
+html.land .crisis-card h2{font-size:24px;margin:0 0 6px}
+html.land .crisis-card #crisis-copy{font-size:15px;line-height:1.45;margin:0}
+html.land .crisis-timer{height:12px;margin:10px 0;flex:none}
+html.land .crisis-actions{grid-template-columns:none !important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin-top:auto}
+html.land .crisis-actions button{min-height:64px;padding:8px 12px;font-size:15px}
+html.land .crisis-actions small{font-size:13px;margin-top:3px}
+html.land .crisis-queue{font-size:13px;margin:6px 0 0}
+
+/* results and the ending: one scrolling page, the button pinned at the bottom */
+html.land .result-screen{padding:calc(12px + var(--sat)) calc(16px + var(--sar)) 0 calc(16px + var(--sal))}
+html.land .result-card{max-width:none;margin:0;padding:14px 22px 0}
+html.land .result-card h1{font-size:32px;margin-bottom:6px}
+html.land .result-summary{font-size:16px;line-height:1.5;max-width:none;margin:0 0 4px}
+html.land .result-grid{grid-template-columns:repeat(4,1fr);margin:12px 0}
+html.land .result-grid div{padding:9px 12px;border-bottom:0;border-right:1px solid var(--line)}
+html.land .result-grid div:last-child{border-right:0}
+html.land .result-grid span{font-size:13px}html.land .result-grid strong{font-size:24px}
+html.land .casualty-list{margin:6px 0 12px;display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
+html.land .casualty-row{padding:9px 2px;gap:10px;font-size:15px}
+html.land .casualty-row span:last-child{font-size:14px;text-align:right}
+html.land .result-base{font-size:15px;margin:0 0 10px}
+html.land .result-card .primary{position:sticky;bottom:calc(6px + var(--sab));width:100%;margin:0 0 calc(12px + var(--sab));min-height:54px;z-index:2;box-shadow:0 -16px 24px #0c1513}
+@media(prefers-reduced-motion:reduce){html.land .log-ticker.show{animation:none;opacity:1}}
