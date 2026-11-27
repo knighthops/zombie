@@ -1165,7 +1165,10 @@
     else if(b.dataset.faw !== undefined){ m.faw = !m.faw; addLog(m.faw ? "Fire at will." : "Hold fire unless they are in the room."); }
     renderHud();
   };
-  const canvas = $("#battlefield"), ctx = canvas.getContext("2d");
+  // ui pass 5: the 3D battlefield (battle3d.js) when three.js loaded and WebGL works; otherwise the 2D canvas below, as before.
+  // It reads the same state each frame and draws into the same canvas box, so taps (toMap, doorReach) are unchanged.
+  const canvas = $("#battlefield"), b3d = window.THREE && window.Battle3D ? window.Battle3D.create(canvas) : null, ctx = b3d ? null : canvas.getContext("2d");
+  const s3 = {m:null, key:"", labels:null, rooms:ROOMS, doors:DOORS, edges:EDGES, W, H, hiddenZ, doorReach:s => doorReach(s)};
   const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
   // the pointer in map units. When the app is rotated (a portrait phone), getBoundingClientRect gives the turned box on screen,
   // so both the pointer and the box go back into the app's own frame first: app x = screen y, app y = screen width - screen x.
@@ -1413,6 +1416,7 @@
 
   // ---------- draw ----------
   function draw(){
+    if(b3d){ s3.m = m; s3.key = B.key; s3.labels = B.labels; b3d.draw(s3); return; }
     // the backing store follows the drawn size and the screen density, so the map stays sharp on a phone; map units stay 1100 x 680
     const cs = Math.min((canvas.clientWidth || W) / W, (canvas.clientHeight || H) / H) || 1, k = clamp(cs * (window.devicePixelRatio || 1), 1, 2.5);
     if(Math.abs(canvas.width - Math.round(W * k)) > 2){ canvas.width = Math.round(W * k); canvas.height = Math.round(H * k); }

@@ -195,3 +195,25 @@ At 667 wide the rail is 236px, and "CONTROLLED" did not fit (86px of text in a 6
 ## Notes for DESIGNER
 1. The "Who comes out" crisis offers Take all 6 / 3 / 1, but "No call → take 4", which is not one of the choices.
 2. A run showed "SAVED 0/6" while the building paid "+1 part": `rescued` was 1 with 6 lost (7 of 6). Someone saved outside the mission (a road event?) seems to count toward the building's payout.
+
+# UI pass 5: 3D battlefield (v4.0)
+
+## What changed
+- **New render layer, `battle3d.js`.** three.js r128 loads from cdnjs before `app.js`. When THREE is present and WebGL starts, `#battlefield` gets a WebGL context and `draw()` hands the live state to `Battle3D` (`m`, ROOMS, DOORS, EDGES, the building key and labels). It only reads that state. Game logic, rules and numbers are unchanged. Without THREE or WebGL, the old 2D canvas renderer runs as before.
+- **Same taps.** The camera is an oblique orthographic view: the floor plane maps exactly onto the same 1100x680 canvas box, and height leans up the screen. `toMap`, `doorReach` (44px / ~80px), Advance and Seal are untouched, rotation included.
+- **The look (approved mock v1.1).** Ruined, desaturated interior with soft non-repeating floors, ruined walls and debris. No base rings. The squad has teal facing cones and two-handed weapons; Joel has a gold star and the white reticle. Civilians have a dashed ring. Downed units show a pulsing red ring and pool. Infected are red with a faint haze. Elites (armoured, bloater) are purple with a glow and an icon. The screamer shows wave rings. Runners leave fading afterimages when sprinting. Skulls mark where a trooper or civilian died, and a crisis bubble sits over the unit or place it concerns. Sealed doors show planks and a countdown, and Seal arming shows the tap ring. Advance outlines rooms. Unseen rooms are fogged with "?". The civilians' corner is a fence whose colour follows the barricade.
+- **Three maps, three prop lists.** Convenience Shop (shelves, counters, fridges, desks, dock, forklift). Cold Storage (chest freezers, conveyors, pallet racks, pumps and tanks, frosted floors). Home base at night (sandbags, fire pit, bunks, lockers, workbench, motor-pool truck, drums; moonlight and firelight).
+- **Performance.** One WebGL context. Each figure is baked to about 6 draw calls and cloned from a template per type, and entity views are pooled. Walls, props and debris are instanced. Shadows are static (rendered once per map; units use blob shadows). The pixel ratio is capped at 2. The view renders only on the game's own draw ticks, and skips frames while the page is hidden. Reduced motion stops bobbing, pulses and spins.
+- `?v=4.0` on styles, battle3d.js and app.js.
+
+## Verified (browser pane)
+- At 844x390: a mission on each map (shop, cold storage, Long Night). Seal was armed and a door tapped (shop, cold, night). Advance was armed and a room tapped (shop, night). Taps were dispatched to the canvas at computed map points, and `elementFromPoint` was the canvas.
+- Rotated 390x844: Seal by tapping the shelter / motor pool door through the CSS rotation.
+- 1440x900: renders at the larger size.
+- Console: no errors.
+- `docs/guide/img/map-hold.png` and `map-night.png` were recaptured from the 3D view (render, then `toDataURL`).
+
+## Not verified
+- A real iPhone (frame rate, heat, WebGL memory).
+- The offline 2D fallback (code path kept, not exercised).
+- Physical touch taps. Taps were synthesized click events with real coordinates.
