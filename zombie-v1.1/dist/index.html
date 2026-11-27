@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07100f">
+  <meta name="description" content="Zombie v1.1 — an interactive survival command drama prototype.">
+  <title>Zombie v1.1</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23071110'/%3E%3Cpath d='M12 37h11l5-12 8 22 6-10h10' fill='none' stroke='%23ff493d' stroke-width='6' stroke-linecap='square'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app">
+    <section class="screen active story-screen" id="story-screen" aria-labelledby="story-title">
+      <div class="story-desk">
+        <div class="case-label">CASE FILE 01 · RUSSA BAKIN</div>
+        <article class="journal">
+          <header class="journal-head">
+            <span>DAY 12</span><span>JOEL'S JOURNAL</span><span>06:40</span>
+          </header>
+          <div class="journal-grid">
+            <div class="story-copy">
+              <p class="eyebrow">PROLOGUE</p>
+              <h1 id="story-title">The road home</h1>
+              <p>Rain dragged the blood into the gutter. Joel stood over the body until the cold finally reached his hands.</p>
+              <p>The old rules were gone. By morning, six people would be waiting for him to make the next impossible decision.</p>
+              <blockquote>“You send them out. You decide when they come home.”</blockquote>
+              <button class="primary ink" id="open-ops">Open operations map</button>
+            </div>
+            <aside class="story-note">
+              <div class="polaroid" aria-label="A rain-soaked road marked as the last known location">
+                <div class="rain-scene"><span class="road-line"></span><span class="red-mark">×</span></div>
+                <p>LAST KNOWN LOCATION<br>2.4 KM SOUTH</p>
+              </div>
+              <div class="hand-note">Tess says the radio picked up survivors near the convenience shop.</div>
+            </aside>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="screen ops-screen" id="ops-screen" aria-labelledby="ops-title">
+      <header class="topbar">
+        <div class="brand"><span class="pulse"></span><strong>ZOMBIE</strong><small>v1.1</small></div>
+        <nav aria-label="Operations sections"><button class="nav-active">MAP</button><button id="roster-jump">ROSTER <span>6</span></button><button>ARCHIVE</button></nav>
+        <div class="clock"><span id="day-state">DAYLIGHT</span><strong id="ops-time">07:10</strong></div>
+      </header>
+      <div class="ops-layout">
+        <aside class="mission-panel">
+          <p class="eyebrow">ACT I · ZONE 01</p>
+          <h2 id="ops-title">Russa Bakin</h2>
+          <p class="muted">Secure a foothold. Locate the missing. Keep the roads open.</p>
+          <div class="chapter-progress"><span style="width:18%"></span></div>
+          <div class="objective"><span>01</span><div><strong>Desperate Measures</strong><small>Rescue the trapped civilians</small></div></div>
+          <div class="objective locked"><span>02</span><div><strong>Cold Storage</strong><small>Unknown location</small></div></div>
+          <div class="objective locked"><span>03</span><div><strong>The Long Night</strong><small>Locked</small></div></div>
+          <div class="hub-card"><span class="hub-icon">⌂</span><div><small>OPERATIONS HUB</small><strong>6 ready · 2 beds · 14 fuel</strong></div></div>
+        </aside>
+
+        <div class="map-wrap" aria-label="Operations map with mission routes">
+          <div class="map-grid"></div>
+          <div class="fog fog-a"></div><div class="fog fog-b"></div>
+          <svg class="routes" viewBox="0 0 900 650" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M118 510 C245 470 280 395 400 350 S620 300 735 185" />
+            <path class="route-dim" d="M118 510 C260 570 440 565 650 510" />
+          </svg>
+          <button class="map-node base-node" style="left:11%;top:75%" aria-label="Operations hub"><span>⌂</span><small>HOME</small></button>
+          <button class="map-node unknown-node" style="left:68%;top:73%" aria-label="Unknown location"><span>?</span><small>NO SIGNAL</small></button>
+          <button class="map-node mission-node selected" style="left:77%;top:23%" id="mission-node" aria-label="Desperate Measures mission"><span>!</span><small>MISSION</small></button>
+          <div class="route-token" style="left:39%;top:51%"><span>●</span> 5 MIN</div>
+          <div class="map-caption"><span>SECTOR 7</span><strong>Signal triangulation: 61%</strong></div>
+        </div>
+
+        <aside class="brief-panel">
+          <div class="brief-head"><span>MISSION 01</span><strong>HIGH PRIORITY</strong></div>
+          <h2>Desperate Measures</h2>
+          <p class="location">CONVENIENCE SHOP · 3.8 KM</p>
+          <p>Civilians are barricaded inside. The shutters are failing and something has entered through the stockroom.</p>
+          <div class="intel-grid">
+            <div><small>THREAT</small><strong id="threat-value">Unknown</strong></div>
+            <div><small>STRUCTURE</small><strong id="structure-value">Partial</strong></div>
+            <div><small>LOOT</small><strong id="loot-value">Possible</strong></div>
+            <div><small>TIME WINDOW</small><strong id="window-value">~45 min</strong></div>
+          </div>
+          <button class="secondary full" id="recon-btn"><span>◉</span> Send recon team <small>20 min · 1 supply</small></button>
+          <div class="choice-block">
+            <span class="choice-label">APPROACH</span>
+            <div class="segmented" id="route-choice">
+              <button data-route="foot"><strong>ON FOOT</strong><small>25 min · quiet</small></button>
+              <button class="selected" data-route="vehicle"><strong>VEHICLE</strong><small>8 min · noisy</small></button>
+            </div>
+          </div>
+          <button class="primary full" id="prepare-btn">Prepare deployment</button>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen prep-screen" id="prep-screen" aria-labelledby="prep-title">
+      <header class="topbar"><button class="back-btn" id="back-map">← MAP</button><div class="brand"><span class="pulse"></span><strong>DEPLOYMENT</strong><small>01</small></div><div class="clock"><span>DEPARTURE</span><strong id="depart-time">07:18</strong></div></header>
+      <div class="prep-layout">
+        <section class="roster-panel">
+          <div class="section-title"><div><p class="eyebrow">STRIKE TEAM</p><h2 id="prep-title">Choose who goes</h2></div><span class="power">POWER <strong id="power-score">72</strong></span></div>
+          <div class="squad-list" id="squad-list"></div>
+        </section>
+        <aside class="doctrine-panel">
+          <p class="eyebrow">MISSION DOCTRINE</p>
+          <h2>Standing orders</h2>
+          <label>ENGAGEMENT</label>
+          <div class="segmented vertical" id="doctrine-choice">
+            <button data-doctrine="defensive"><strong>DEFENSIVE</strong><small>Hold formation, conserve ammo</small></button>
+            <button class="selected" data-doctrine="controlled"><strong>CONTROLLED</strong><small>Balanced movement and fire</small></button>
+            <button data-doctrine="aggressive"><strong>AGGRESSIVE</strong><small>Advance quickly, high ammo use</small></button>
+          </div>
+          <label>MISSION MODE</label>
+          <div class="mode-cards" id="mode-choice">
+            <button data-mode="observe"><span>◉</span><strong>OBSERVE</strong><small>Watch the squad execute your plan.</small></button>
+            <button class="selected" data-mode="command"><span>⌁</span><strong>COMMAND</strong><small>Issue orders and answer crises.</small></button>
+            <button data-mode="resolve"><span>▤</span><strong>RESOLVE</strong><small>Calculate the outcome instantly.</small></button>
+          </div>
+          <div class="forecast"><div><span>SUCCESS</span><strong id="success-forecast">LIKELY</strong></div><div><span>EXPECTED LOSSES</span><strong id="loss-forecast">0–2</strong></div><div><span>INTEL CONFIDENCE</span><strong id="intel-forecast">LOW</strong></div></div>
+          <button class="primary full danger" id="deploy-btn">Deploy team</button>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen combat-screen" id="combat-screen" aria-labelledby="combat-title">
+      <header class="combat-top">
+        <div><p class="eyebrow">MISSION 01 · LIVE</p><h2 id="combat-title">Convenience Shop</h2></div>
+        <div class="mission-stat"><span>OBJECTIVE</span><strong id="objective-text">Reach the civilians</strong></div>
+        <div class="time-controls" aria-label="Time controls"><button id="pause-btn" aria-label="Pause">Ⅱ</button><button class="selected" data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button></div>
+      </header>
+      <div class="combat-layout">
+        <div class="battlefield-wrap">
+          <canvas id="battlefield" width="1100" height="680" aria-label="Live top-down mission simulation"></canvas>
+          <div class="scanlines"></div>
+          <div class="combat-hud">
+            <div class="squad-status" id="squad-status"></div>
+            <div class="command-bar" id="command-bar">
+              <button data-command="rally"><span>⌖</span>RALLY</button>
+              <button data-command="hold"><span>▣</span>HOLD</button>
+              <button data-command="focus"><span>◎</span>FOCUS</button>
+              <button data-command="gear"><span>✚</span>MEDKIT</button>
+              <button data-command="retreat" class="retreat"><span>↙</span>RETREAT</button>
+            </div>
+          </div>
+        </div>
+        <aside class="battle-log-panel">
+          <div class="log-head"><div><span class="live-dot"></span><strong>BATTLE LOG</strong></div><small id="mission-clock">00:00</small></div>
+          <div class="log-filters"><button class="selected" data-filter="all">ALL</button><button data-filter="critical">CRITICAL</button><button data-filter="kills">KILLS</button></div>
+          <div class="log-stream" id="log-stream" aria-live="polite"></div>
+          <div class="bandwidth"><div><span>COMMAND</span><strong id="command-points">● ● ●</strong></div><div class="bandwidth-line"><span id="bandwidth-fill"></span></div></div>
+        </aside>
+      </div>
+      <div class="crisis-overlay" id="crisis-overlay" role="dialog" aria-modal="true" aria-labelledby="crisis-title">
+        <div class="crisis-card"><p class="eyebrow alert">COMMAND WINDOW</p><h2 id="crisis-title">A trooper is down</h2><p id="crisis-copy">The team is exposed. You have seconds to decide.</p><div class="crisis-timer"><span id="crisis-timer-fill"></span></div><div class="crisis-actions"><button data-crisis="rescue"><strong>Emergency rescue</strong><small>2 command · safest</small></button><button data-crisis="cover"><strong>Cover and stabilize</strong><small>1 command · risky</small></button><button data-crisis="abandon" class="danger-choice"><strong>Leave them</strong><small>Preserve the team</small></button></div></div>
+      </div>
+    </section>
+
+    <section class="screen result-screen" id="result-screen" aria-labelledby="result-title">
+      <div class="result-card"><p class="eyebrow">AFTER-ACTION REPORT · MISSION 01</p><h1 id="result-title">Team returning</h1><p class="result-summary" id="result-summary"></p><div class="result-grid" id="result-grid"></div><div class="casualty-list" id="casualty-list"></div><button class="primary" id="return-ops">Return to operations</button><button class="secondary" id="retry-mission">Run mission again</button></div>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
