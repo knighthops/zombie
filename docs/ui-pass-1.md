@@ -177,3 +177,21 @@ At 667 wide the rail is 236px, and "CONTROLLED" did not fit (86px of text in a 6
 ## Notes for DESIGNER
 1. In one Long Night with Walls, the shelter fell from 100% to 31% in about 40s of sim while the team stood in the courtyard, and it fell before dawn. That may be intended, but it felt fast.
 2. In combat, the chip status after "·" still truncates at 667 ("Shann…"). An icon for ESCORT or CARRYING would help.
+
+# UI pass 4 (v3.3, after slice 3.1)
+
+## Fixes
+- **Portrait clipped (TESTER bug 1).** Root cause: the reduced-motion rule set `transition-duration:.01ms` on every element, so `#app` "transitioned" into its rotation. In a throttled or background page the transition never finished and the frame stayed unrotated at 844x844, clipping every screen, the ending included. Reduced motion now uses `transition:none`, and `html, body, #app` never transition. Rotated 390x844 (and 390x664) now measures 390x844 with every screen fitting; long panels scroll inside.
+- **Crisis text in page text (bug 3).** The journal was an `<article>`, so text tools read the hidden prologue instead of `<main>`. It is a `<div>` now; the crisis title, copy, options and queue all show in page text.
+- **Tired.** "All 6 tired · out yesterday · −15% hit · a day off clears" (names when 1-2). Rest says "Heal · clears tired".
+- **Walls.** "Shelter 100% · 2 ways in" (was "back shut"). The night brief now shows SHELTER and WAYS IN, plus a WALLS row: "✓ Built" or "Not built", then "+30% shelter · −1 way in · drains ¼ slower".
+- **Slice 3.1 labels.** Scavenge and Rest each get a cost line: amber "Barricade −15", or red "1 civilian dies". The dawn clock's pause is an amber "Ⅱ paused" tag. The brief has a REWARD row: "3+ saved · +3 parts · Safe house", "1+ saved · +1 part", turning green ✓ when met. The after-action base line says "is ours", "few saved" or "is lost · no reward". Civilian deaths are numbered rows ("Civilian 2 · taken by a crawler · checkout") in their own two-column block, with the room dropped when the cause already names it. At night the breach crisis is titled "Shelter breached", to match the HUD.
+
+## Verified (browser pane, measured with JS)
+- 844x390 and rotated 390x844 (plus 390x664): story, ops (day and night), deployment, road event, combat, crisis, after-action (with civilian rows), ending. Nothing outside the app, no clipped text, no text under 13px, no button under 44px.
+- Console: no errors.
+- The pane's screenshots were often stale, so layout was checked by measuring.
+
+## Notes for DESIGNER
+1. The "Who comes out" crisis offers Take all 6 / 3 / 1, but "No call → take 4", which is not one of the choices.
+2. A run showed "SAVED 0/6" while the building paid "+1 part": `rescued` was 1 with 6 lost (7 of 6). Someone saved outside the mission (a road event?) seems to count toward the building's payout.

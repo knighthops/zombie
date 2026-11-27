@@ -15,14 +15,14 @@
   <meta name="description" content="Zombie v1.1 — an interactive survival command drama prototype.">
   <title>Zombie v1.1</title>
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.2">
+  <link rel="stylesheet" href="./styles.css?v=3.3">
 </head>
 <body>
   <main id="app">
     <section class="screen active story-screen" id="story-screen" aria-labelledby="story-title">
       <div class="story-desk">
         <div class="case-label">CASE FILE 01 · RUSSA BAKIN</div>
-        <article class="journal">
+        <div class="journal">
           <header class="journal-head">
             <span>DAY 12</span><span>JOEL'S JOURNAL</span><span>06:40</span>
           </header>
@@ -43,7 +43,7 @@
               <div class="hand-note">Tess: survivors at the shop.</div>
             </aside>
           </div>
-        </article>
+        </div>
       </div>
     </section>
 
@@ -87,8 +87,9 @@
           <p class="tired-line" id="tired-line" hidden></p>
           <p id="brief-copy">Civilians barricaded in the stockroom.</p>
           <div class="intel-grid">
-            <div><small>INFECTED</small><strong id="threat-value">?</strong></div>
-            <div><small>BARRICADE</small><strong id="window-value">~100%</strong></div>
+            <div><small id="threat-label">INFECTED</small><strong id="threat-value">?</strong></div>
+            <div><small id="window-label">BARRICADE</small><strong id="window-value">~100%</strong></div>
+            <div class="reward-cell" id="reward-cell"><small>REWARD</small><strong id="reward-value"></strong></div>
           </div>
           <button class="secondary full" id="recon-btn"></button>
           <div class="choice-block" id="route-block">
@@ -101,8 +102,8 @@
           <div class="choice-block day-actions">
             <span class="choice-label">OR SPEND THE DAY</span>
             <div class="segmented">
-              <button id="scavenge-btn"><strong>SCAVENGE</strong><small id="scav-who"></small><small class="odds" id="scav-odds"></small></button>
-              <button id="rest-btn"><strong>REST</strong><small>Heal</small></button>
+              <button id="scavenge-btn"><strong>SCAVENGE</strong><small id="scav-who"></small><small class="odds" id="scav-odds"></small><small class="day-cost" id="scav-cost"></small></button>
+              <button id="rest-btn"><strong>REST</strong><small>Heal</small><small class="day-cost" id="rest-cost"></small></button>
             </div>
             <span class="choice-label build-label">BUILD · 1 A DAY · <b id="parts-count">0</b></span>
             <div class="segmented build-grid" id="build-choice"></div>
@@ -189,6 +190,6 @@
       <div class="result-card" id="end-card"><div class="result-body"><p class="eyebrow" id="end-eyebrow">CHAPTER 1</p><h1 id="end-title">Dawn</h1><p class="result-summary" id="end-summary"></p><div class="result-grid" id="end-grid"></div><div class="casualty-list" id="end-buildings"></div><div class="casualty-list" id="end-roster"></div><p class="result-base" id="end-base"></p></div><button class="primary" id="end-new">New campaign</button></div>
     </section>
   </main>
-  <script src="./app.js?v=3.2"></script>
+  <script src="./app.js?v=3.3"></script>
 </body>
 </html>

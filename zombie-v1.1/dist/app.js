@@ -69,7 +69,7 @@
   ];
   // slice 3 (Upgrade): parts buy one base build per rest day. Few options, more than you can afford.
   const UPGRADES = [
-    {id:"walls", name:"Walls", cost:4, sub:"Night: 100%, back shut"},
+    {id:"walls", name:"Walls", cost:4, sub:"Shelter 100% · 2 ways in"},
     {id:"infirmary", name:"Infirmary", cost:3, sub:"Heal ×2"},
     {id:"bench", name:"Reload bench", cost:3, sub:"+20 rds a day"},
     {id:"radio", name:"Radio mast", cost:2, sub:"Free recon"},
@@ -216,17 +216,26 @@
     $("#brief-title").textContent = B.mission; $("#brief-place").textContent = B.place; $("#brief-copy").textContent = B.brief;
     // tired troopers: say it where the decision is made (slice 3, TESTER note 4)
     const tired = team().filter(p => available(p.id) && isTired(p.id)).map(p => p.name);
-    const tl = [tired.length ? `Tired: ${tired.join(", ")} · −15% hit` : "", B.night ? `Ammo ${camp.ammo} · night needs ~${NIGHT_AMMO}` : ""].filter(Boolean).join(" · ");
-    $("#tired-line").textContent = tl; $("#tired-line").hidden = !tl;
+    // ui pass 4: say why (out yesterday) and the fix (a day off), in one short line each
+    const fitN = team().filter(p => available(p.id)).length, who = tired.length <= 2 ? tired.join(" & ") : tired.length === fitN ? `All ${fitN}` : `${tired.length}`;
+    const tl = [tired.length ? `${who} tired · out yesterday · −15% hit · a day off clears` : "", B.night ? `Ammo ${camp.ammo} · night needs ~${NIGHT_AMMO}` : ""].filter(Boolean);
+    $("#tired-line").innerHTML = tl.map(t => `<span>${t}</span>`).join(""); $("#tired-line").hidden = !tl.length;
     $("#ops-report").textContent = camp.report || ""; $("#ops-report").hidden = !camp.report;
     $("#brief-report").textContent = camp.report || ""; $("#brief-report").hidden = !camp.report; // phone copy, at the top of the brief
-    $("#threat-value").textContent = threatText();
-    $("#window-value").textContent = `~${arrivalBarricade()}%`;
+    // ui pass 4: the night brief shows the shelter, the ways in and what Walls change; a building brief shows its reward tiers
+    $("#threat-label").textContent = B.night ? "SHELTER" : "INFECTED"; $("#window-label").textContent = B.night ? "WAYS IN" : "BARRICADE";
+    $("#threat-value").textContent = B.night ? `${NIGHT_CAP()}%` : threatText();
+    $("#window-value").textContent = B.night ? (has("walls") ? "2" : "3") : `~${arrivalBarricade()}%`;
+    const rwd = REWARDS[B.key], cs = cur().civStart || 0;
+    $("#reward-cell small").textContent = B.night ? "WALLS" : "REWARD";
+    $("#reward-value").innerHTML = B.night
+      ? `<span class="${has("walls") ? "ok" : "no"}">${has("walls") ? "✓ Built" : "Not built"}</span><span>+30% shelter · −1 way in · drains ¼ slower</span>`
+      : rwd ? [[Math.ceil(cs / 2), `+3 parts · ${rwd.name}`], [1, "+1 part"]].map(([n, t]) => `<span${(cur().rescued || 0) >= n ? ` class="met"` : ""}><b>${n}+</b> saved · ${t}</span>`).join("") : "";
     $("#recon-btn").innerHTML = state.recon ? "<span>✓</span> Recon done" : `<span>◉</span> Recon <small>${has("radio") ? "Free" : "Barricade −10"} · map · −3 infected</small>`;
     const over = campaignOver();
     $("#recon-btn").disabled = !canDeploy();
     $("#recon-btn").hidden = !!B.night; $("#route-block").hidden = !!B.night;
-    $(".intel-grid").hidden = !!B.night;
+    $(".intel-grid").hidden = over;
     selectButtons($("#route-choice"), "route", state.route);
     $("#depart-time").textContent = state.route === "vehicle" ? "07:18" : "07:35";
     $("#prepare-btn").disabled = !canDeploy();
@@ -236,10 +245,12 @@
     $("#scavenge-btn").disabled = !free || !sc.length;
     const so = scavOdds();
     const idle = B.night || over ? "" : cur().barricade - IDLE_DECAY < BAR_FLOOR ? "1 civilian dies" : `barricade −${IDLE_DECAY}`; // slice 3.1: any day away costs the same, so both buttons say it
-    $("#scav-who").textContent = sc.length ? `${sc.map(p => p.name).join(" + ")} · +${so.lo}–${so.hi} rds${idle ? ` · ${idle}` : ""}` : "No one fit";
+    $("#scav-who").textContent = sc.length ? `${sc.map(p => p.name).join(" + ")} · +${so.lo}–${so.hi} rds` : "No one fit";
     $("#scav-odds").innerHTML = sc.length ? `<b class="ok">${so.clean}%</b> ok <b class="hu">${so.hurt}%</b> hurt <b class="ki">${so.killed}%</b> KIA` : "";
     $("#rest-btn").disabled = !free;
-    $("#rest-btn small").textContent = idle ? `Heal · ${idle}` : "Heal · clear tired";
+    $("#rest-btn small").textContent = "Heal · clears tired";
+    // ui pass 4: the cost of a day away gets its own line on both buttons, red when it is a life
+    $$(".day-cost").forEach(e => { e.textContent = idle.replace(/^b/, "B"); e.hidden = !idle; e.classList.toggle("life", idle === "1 civilian dies"); });
     $("#parts-count").textContent = plural(camp.parts, "PART").toUpperCase(); $(".day-actions").hidden = B.night && !nightWait();
     $("#build-choice").innerHTML = UPGRADES.map(u => `<button data-build="${u.id}" class="${has(u.id) ? "built" : ""}" ${has(u.id) || !free || camp.parts < u.cost || camp.builtDay === camp.day ? "disabled" : ""}><strong>${has(u.id) ? "✓ " : ""}${u.name}${has(u.id) ? "" : ` <i>${u.cost}</i>`}</strong><small>${u.sub}</small></button>`).join("");
     $("#new-campaign").textContent = state.confirmWipe ? "Confirm: wipe this campaign" : "New campaign";
@@ -1070,7 +1081,7 @@
       };
     }
     return {
-      title:"Barricade down",
+      title:m.night ? "Shelter breached" : "Barricade down", // ui pass 4: match the HUD's word at night
       copy:`${plural(left, "civilian")} exposed · 1 dies every 10s`,
       options:[
         {id:"push", label:"Push", sub:`● · to the ${roomName(CIV)}, loud`, disabled:m.cp < 1, run(){ m.cp--; m.push = true; m.holdT = 0; if(m.night){ m.prevRoom = m.squadRoom; m.squadRoom = CIV; } addLog(`Joel: "Move. Now. Get to them."`, "critical"); }},
@@ -1323,11 +1334,12 @@
     $("#result-grid").innerHTML = `<div><span>SAVED</span><strong>${r.rescued}<small>/${m.civStart}</small></strong></div><div><span>KILLS</span><strong>${m.kills}</strong></div><div><span>ROUNDS</span><strong>${r.ammoUsed}</strong></div><div><span>TEAM LOST</span><strong>${dead.length}</strong></div>`;
     const rw = REWARDS[r.key], pay = r.pay || {};
     $("#result-base").textContent = m.night ? "" : r.resolved
-      ? `${r.title} ${pay.bonus ? "is ours" : "done"} · +${pay.parts || 0} parts${rw && pay.bonus ? ` · ${rw.name}` : ""} · next: ${B.mission}`
+      ? `${r.title} ${pay.bonus ? "is ours" : pay.parts ? "· few saved" : "is lost"} · ${pay.parts ? `+${pay.parts} ${pay.parts > 1 ? "parts" : "part"}` : "no reward"}${rw && pay.bonus ? ` · ${rw.name}` : ""} · next: ${B.mission}`
       : `Base ${camp.ammo} rds · ${camp.meds} meds · ${r.left} trapped · barricade ${r.barricade}%`;
     // slice 3.1: one row per civilian lost, with how
-    const civRows = m.civs.filter(c => c.status === "dead").map(c => `<div class="casualty-row is-dead"><strong>Civilian</strong><span>${c.how || "lost"}</span></div>`);
-    $("#casualty-list").innerHTML = m.units.map(u => `<div class="casualty-row ${u.status === "DEAD" ? "is-dead" : hurt.includes(u) ? "is-hurt" : ""}"><strong>${u.name}</strong><span>${u.outcome}</span></div>`).join("") + civRows.join("");
+    // ui pass 4: numbered, so a count can be traced row by row ("Civilian 2 · bitten · checkout")
+    const civRows = m.civs.filter(c => c.status === "dead").map((c, i) => { const h = (c.how || "lost").split(" · "); if(h[1] && h[0].includes(h[1])) h.pop(); return `<div class="casualty-row is-dead civ-row"><strong>Civilian ${i + 1}</strong><span>${h.join(" · ")}</span></div>`; });
+    $("#casualty-list").innerHTML = m.units.map(u => `<div class="casualty-row ${u.status === "DEAD" ? "is-dead" : hurt.includes(u) ? "is-hurt" : ""}"><strong>${u.name}</strong><span>${u.outcome}</span></div>`).join("") + (civRows.length ? `<div class="civ-list">${civRows.join("")}</div>` : "");
     show("result-screen");
   }
 
@@ -1361,7 +1373,7 @@
     if(!m) return;
     const joel = m.units.find(u => u.id === "joel"), joelUp = joel && joel.status === "ACTIVE";
     const chips = m.units.map(u => `<div class="unit-chip ${u.status.toLowerCase()}${u.tired ? " tired" : ""}${u.status === "ACTIVE" && u.hp < u.maxHp * .4 ? " low" : ""}" style="--hp:${u.status === "ACTIVE" ? Math.max(0, Math.round(u.hp / u.maxHp * 100)) : u.status === "DOWN" ? Math.round(clamp(u.bleed / 20, 0, 1) * 100) : 0}%"><strong>${u.name}</strong><small>${chipText(u)}</small></div>`).join("");
-    const objective = m.objective === "gather" ? `Hold the ${roomName(CIV)} · ${Math.ceil(m.gatherT)}s` : m.objective === "hold" ? `Dawn in ${fmt(Math.max(0, DAWN - m.elapsed))}${m.crises.length ? " · paused" : ""} · shelter ${m.barricade > 0 ? Math.ceil(m.barricade) + "%" : "breached"}`
+    const objective = m.objective === "gather" ? `Hold the ${roomName(CIV)} · ${Math.ceil(m.gatherT)}s` : m.objective === "hold" ? `Dawn in ${fmt(Math.max(0, DAWN - m.elapsed))}${m.crises.length ? ` <em class="paused">Ⅱ paused</em>` : ""} · shelter ${m.barricade > 0 ? Math.ceil(m.barricade) + "%" : "breached"}`
       : m.objective === "reach" ? (m.barricade > 0 ? `Reach civilians · barricade ${Math.ceil(m.barricade)}%` : `Barricade down · 1 lost in ${Math.ceil(10 - (m.civClock || 0))}s`)
       : m.objective === "extract" ? `Walk ${m.civs.filter(c => c.status === "following").length} out · west door${m.holding ? " · holding" : ""}`
       : m.objective === "choose" ? "Who comes out" : "No one left · retreat";
@@ -1370,7 +1382,7 @@
     if(sig !== m.hudSig){
       m.hudSig = sig;
       $("#squad-status").innerHTML = chips;
-      $("#objective-text").textContent = objective;
+      $("#objective-text").innerHTML = objective; // ui pass 4: "paused" is a tag, not more text
       $("#command-points").textContent = "● ".repeat(m.cp) + "○ ".repeat(3 - m.cp);
       $$("#stance-bar [data-stance]").forEach(b => b.classList.toggle("selected", b.dataset.stance === m.stance));
       const faw = $("#stance-bar [data-faw]"); faw.textContent = m.faw ? "FIRE AT WILL: ON" : "FIRE AT WILL: OFF"; faw.classList.toggle("faw-off", !m.faw);

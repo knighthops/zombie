@@ -180,7 +180,7 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
   .result-grid strong{font-size:22px}
 }
 @media(prefers-reduced-motion:reduce){
-  *,*:before,*:after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+  *,*:before,*:after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition:none !important;scroll-behavior:auto !important}
 }
 /* disabled actions read as status plates, not live buttons */
 .primary:disabled{opacity:1;background:#141c1a;color:var(--amber);border:1px dashed #6b5a32;filter:none}
@@ -484,3 +484,25 @@ html.land .stance-bar button[data-stance]{letter-spacing:0}
 html.narrow .command-bar button{letter-spacing:0;padding:4px 0}
 html.land .result-body{padding-right:8px}
 html.narrow .result-card h1{font-size:30px}html.narrow .result-grid{margin:8px 0}html.narrow .result-card{padding-top:8px}
+
+/* ui pass 4: day cost line, reward tiers, night Walls row, tired reasons, paused tag, civilian rows */
+.day-actions small.day-cost{display:block;font:700 13px/1.3 var(--sans,system-ui);color:var(--amber);margin-top:3px}
+.day-actions small.day-cost.life{color:var(--red)}
+.day-actions small.day-cost[hidden]{display:none}
+.tired-line span{display:block}
+.intel-grid .reward-cell{grid-column:1/-1;border-right:0 !important;border-top:1px solid var(--line)}
+.intel-grid .reward-cell strong{font-size:14px !important;line-height:1.35;font-weight:600}
+.intel-grid .reward-cell strong span{display:block}
+.intel-grid .reward-cell b{color:var(--amber)}
+.intel-grid .reward-cell .ok{color:var(--green);font-weight:800}
+.intel-grid .reward-cell .no{color:var(--amber);font-weight:800}
+html.land .intel-grid .reward-cell small{margin-bottom:2px}
+#objective-text .paused{font-style:normal;color:var(--amber);background:#3a2a0e;border:1px solid #6b4d16;padding:0 5px;margin:0 2px;white-space:nowrap}
+.casualty-row.civ-row strong{font-weight:600}
+.intel-grid .reward-cell .met{color:var(--green)}.intel-grid .reward-cell .met:after{content:" ✓"}
+/* ui pass 4: the app frame never animates. Under reduced motion every property used to "transition" in .01ms, and in a
+   throttled or background page the turned frame could stick unrotated at 844x844 (TESTER slice 3: portrait clipped) */
+html,body,#app{transition:none !important}
+.civ-list{grid-column:1/-1}
+html.land .civ-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}
+.civ-row strong{white-space:nowrap}.casualty-row span:last-child{min-width:0;overflow-wrap:anywhere}
