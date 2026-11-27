@@ -116,3 +116,64 @@ The request: the phone should always play sideways so it uses the whole screen, 
 ## Notes for DESIGNER
 1. On a phone the squad markers still stack into a blob (ui-pass-1 note 2). The map is bigger now, but the slot spacing is a sim change.
 2. When a chip is narrow, the status after "· " (ESCORT, CARRYING) can be cut off. Consider a shorter status word or an icon.
+
+# UI pass 3: less text (2026-11-27, after slice 3)
+
+The request: don't overexplain. Cut sublines and tutorial sentences, keep name + one number, and spend the space on bigger key text. No rules or numbers changed. Cache-bust is now `?v=3.1`. Files: `index.html`, `app.js` (copy strings, `showResults`, `showEnd`, `updateForecast`, crisis cards, a `narrow` class in `fitView`), `styles.css` (new block at the end, "ui pass 3").
+
+## Word count (visible copy, 844x390)
+Counted with `#app.innerText` on the active screen, same flow before and after (fresh campaign, police-car road event, first crisis, the chapter ending with the same seeded end state).
+
+| Screen | Before | After |
+|---|---|---|
+| Prologue | 86 | 64 |
+| Ops map (brief + chapter panel) | 195 | 136 |
+| Deployment | 162 | 91 |
+| Road event | 26 | 22 |
+| Combat HUD | 81 | 63 |
+| Combat + "Who comes out" crisis | 145 | 98 |
+| After-action | 76 | 54 |
+| Ending | 98 | 60 |
+| **Total** | **869** | **588 (−32%)** |
+
+The after-action runs were different outcomes (withdrawn vs overrun), so that row is close, not exact.
+
+## Tester notes done
+- **Sticky button over rows (after-action, ending, also Deploy).** The card is now a flex column: `.result-body` (and `.doctrine-body` on deployment) scrolls, and the button sits under it, outside the scroll. Nothing slides under a button any more, in either orientation.
+- **Crisis scrollbar.** The copy is one short line, so the card fits the map at 667x375, 844x390 and rotated (scrollHeight = clientHeight, measured). Overflow is hidden and the scrollbar is suppressed as a backstop.
+- **Scavenge odds.** Its own line: `60% ok 30% hurt 10% KIA` at 14-15px, coloured green, amber, red. Who goes and the haul sit on the line above.
+- **404.** The icon link now points at `icon-192.png` (was an inline SVG data URI). Every request on a fresh load is 200. A browser that asks for `/favicon.ico` on its own would still get a 404; there is no .ico in dist.
+
+## What was cut, by screen
+- **Prologue:** both paragraphs shortened, the hand note is one line ("Tess: survivors at the shop."), the button says "Open the map". The journal voice stays.
+- **Ops:** removed the zone tagline, "HIGH PRIORITY", "OPERATIONS HUB", "Signal triangulation", the APPROACH label, and the STRUCTURE and LOOT tiles (flavour). The place moved into the brief header. Briefs are one line. INFECTED and BARRICADE are 24px. Recon is one line ("Recon · Barricade −10 · map · −3 infected"). The hub line bolds the numbers. Chapter rows show only non-zero counts. Build buttons: name, cost in amber, a 2-3 word effect.
+- **Deployment:** no eyebrow or "Standing orders" heading. Stances are one row of three with a 2-3 word tag each. Traits are 1-2 words ("Close · loud", "Fast · quiet"; Joel "Can't die · scars", or "Scars 1/3 · −20 HP · cmd 16s"). Intel rows: INFECTED, SPECIALS, BARRICADE, NOISE ("15 / 30"), TEAM. At night the labels switch to RAIDS ("7 · dawn at 02:30"), SHELTER and WAYS IN.
+- **Road event:** title, one short line, then the choices as big side-by-side cards with the cost in amber ("+40 rds · +10 noise", "—" for no cost).
+- **Combat:** the OBJECTIVE label is gone, so the objective itself is 16px. Command pips are 24px, noise 22px, ammo 20px. Order costs use the command pip ("●", "● · 20s"). The opening log lines (they flash in the ticker) are short.
+- **Crises:** header "PAUSED" plus the seconds; a one-line situation ("Checkout · 5 close · bleeds out 20s"); options are verbs with their cost ("Drag clear · ●● · Mike carries 6s", "Patch up · ● + med · 22%", "Leave · Free · lost for good"); footer "No call → focus fire". Title 30px, options 18px.
+- **After-action:** one line that says only what the numbers don't (e.g. "3 lost in the scramble.", "Marco joined."). Tiles: SAVED 3/6, KILLS, ROUNDS, TEAM LOST at 32px. Rows: name + "OK", "Out 2d", "KIA", "Dragged out 3d", "Out 2d · scar 1/3". The base line is one row of numbers.
+- **Ending:** one summary line, the same tiles, places as three tiles, and the team in three columns ("Alive", "Wounded", "KIA · day 15", "2 scars"). The "progress stays on this device" sentence is gone.
+- **Day reports** (the amber note on the ops map) are about half as long: "Day 14: 4 rescued, lost David. +8 infected overnight."
+
+## Slice-3 screens laid out
+- **Road event:** a centred card, the choices fill the width, 96-110px tall.
+- **Upgrades:** a 3-column grid of name + cost + effect. Built ones turn green with a ✓.
+- **Long Night:** the brief, the "Ammo 119 · night needs ~250" line and "Man the walls" fit the first screen. Deployment intel is night-specific. The HUD objective reads "Dawn in 01:51 · shelter 31%".
+- **Endings:** Dawn, The base fell, Into the rain, and the campaign-over cards all use the same layout and tone colour.
+
+## Narrow rail
+At 667 wide the rail is 236px, and "CONTROLLED" did not fit (86px of text in a 69px button). That bug was already there before this pass. `fitView` now sets `html.narrow` when the app is under 760px wide. The stance buttons then show DEF / CTRL / AGGR (with aria-labels), and the order buttons drop their letter spacing. At 844 and up the full words fit at 13px.
+
+## Verified (browser pane, Chrome emulation)
+- 844x390, 667x375 and rotated 390x844. Every screen: story, ops (day and night), deployment (day and night), road event, combat, a crisis, after-action, ending. An automated check found no text under 13px, no button under 44px and no button text overflowing. The one exception is the map node label "NO SIGNAL", which sits outside its node, as before.
+- Real taps through the rotation (390x844): a road choice, "Take 3" in a crisis, Retreat.
+- A full Long Night at 4x, ending on The base fell, then the ending screen.
+- Console: no errors from the game. All requests on a fresh load returned 200.
+
+## Not verified
+- A real iPhone. The pane's screenshots were often stale or cropped, so layout was checked by measuring with JS, plus the screenshots that did render.
+- True desktop width: the pane is phone-sized, and the "desktop" preset is also 390x844.
+
+## Notes for DESIGNER
+1. In one Long Night with Walls, the shelter fell from 100% to 31% in about 40s of sim while the team stood in the courtyard, and it fell before dawn. That may be intended, but it felt fast.
+2. In combat, the chip status after "·" still truncates at 667 ("Shann…"). An icon for ESCORT or CARRYING would help.
